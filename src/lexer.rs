@@ -1,5 +1,4 @@
-use crate::token;
-use crate::token::{Token, TokenType};
+use crate::token::{self, Token, TokenType};
 use std::default::Default;
 
 #[derive(Default, Debug)]
