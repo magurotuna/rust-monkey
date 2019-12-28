@@ -52,48 +52,48 @@ fn test_next_token() {
     let input = "=+(){},;";
 
     struct TokenTest {
-        expectedType: TokenType,
-        expectedLiteral: String,
+        expected_type: TokenType,
+        expected_literal: String,
     };
     let mut tests = Vec::new();
     tests.push(TokenTest {
-        expectedType: TokenType::Assign,
-        expectedLiteral: "=".to_string(),
+        expected_type: TokenType::Assign,
+        expected_literal: "=".to_string(),
     });
     tests.push(TokenTest {
-        expectedType: TokenType::Plus,
-        expectedLiteral: "+".to_string(),
+        expected_type: TokenType::Plus,
+        expected_literal: "+".to_string(),
     });
     tests.push(TokenTest {
-        expectedType: TokenType::LParen,
-        expectedLiteral: "(".to_string(),
+        expected_type: TokenType::LParen,
+        expected_literal: "(".to_string(),
     });
     tests.push(TokenTest {
-        expectedType: TokenType::RParen,
-        expectedLiteral: ")".to_string(),
+        expected_type: TokenType::RParen,
+        expected_literal: ")".to_string(),
     });
     tests.push(TokenTest {
-        expectedType: TokenType::LBrace,
-        expectedLiteral: "{".to_string(),
+        expected_type: TokenType::LBrace,
+        expected_literal: "{".to_string(),
     });
     tests.push(TokenTest {
-        expectedType: TokenType::RBrace,
-        expectedLiteral: "}".to_string(),
+        expected_type: TokenType::RBrace,
+        expected_literal: "}".to_string(),
     });
     tests.push(TokenTest {
-        expectedType: TokenType::Comma,
-        expectedLiteral: ",".to_string(),
+        expected_type: TokenType::Comma,
+        expected_literal: ",".to_string(),
     });
     tests.push(TokenTest {
-        expectedType: TokenType::Semicolon,
-        expectedLiteral: ";".to_string(),
+        expected_type: TokenType::Semicolon,
+        expected_literal: ";".to_string(),
     });
 
     let mut l = Lexer::new(input.to_string());
 
     for t in tests {
         let tok = l.next_token();
-        assert_eq!(tok.token_type, t.expectedType);
-        assert_eq!(tok.literal, t.expectedLiteral);
+        assert_eq!(tok.token_type, t.expected_type);
+        assert_eq!(tok.literal, t.expected_literal);
     }
 }
