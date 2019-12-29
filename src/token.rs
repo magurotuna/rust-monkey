@@ -5,6 +5,11 @@ lazy_static! {
         let mut m = HashMap::new();
         m.insert("fn", TokenType::Function);
         m.insert("let", TokenType::Let);
+        m.insert("if", TokenType::If);
+        m.insert("else", TokenType::Else);
+        m.insert("return", TokenType::Return);
+        m.insert("true", TokenType::True);
+        m.insert("false", TokenType::False);
         m
     };
 }
@@ -30,9 +35,17 @@ impl Token {
         }
     }
 
-    pub fn is_not_symbol(&self) -> bool {
+    pub fn is_identifier_or_keywords(&self) -> bool {
         match self.token_type {
-            TokenType::Identifier | TokenType::Function | TokenType::Let | TokenType::Int => true,
+            TokenType::Identifier
+            | TokenType::Function
+            | TokenType::Let
+            | TokenType::Int
+            | TokenType::If
+            | TokenType::Else
+            | TokenType::Return
+            | TokenType::True
+            | TokenType::False => true,
             _ => false,
         }
     }
@@ -60,4 +73,9 @@ pub enum TokenType {
     RBrace,
     Function,
     Let,
+    If,
+    Else,
+    Return,
+    True,
+    False,
 }

@@ -63,7 +63,7 @@ impl Lexer {
                 }
             }
         };
-        if token.is_not_symbol() {
+        if token.is_identifier_or_keywords() {
             return token;
         }
         self.read_char();
@@ -362,6 +362,96 @@ let result = add(five, ten);
         tests.push(TokenTest {
             expected_type: TokenType::Int,
             expected_literal: "5".to_string(),
+        });
+
+        let mut l = Lexer::new(input.to_string());
+
+        for (i, t) in tests.into_iter().enumerate() {
+            let tok = l.next_token();
+            println!("Test {}", i);
+            assert_eq!(tok.token_type, t.expected_type);
+            assert_eq!(tok.literal, t.expected_literal);
+        }
+    }
+
+    #[test]
+    fn test_next_token4() {
+        let input = r#"
+if (5 < 10) {
+    return true;
+} else {
+    return false;
+}
+            "#;
+
+        let mut tests = Vec::new();
+        tests.push(TokenTest {
+            expected_type: TokenType::If,
+            expected_literal: "if".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LParen,
+            expected_literal: "(".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "5".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Lt,
+            expected_literal: "<".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "10".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RParen,
+            expected_literal: ")".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LBrace,
+            expected_literal: "{".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Return,
+            expected_literal: "return".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::True,
+            expected_literal: "true".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RBrace,
+            expected_literal: "}".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Else,
+            expected_literal: "else".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LBrace,
+            expected_literal: "{".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Return,
+            expected_literal: "return".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::False,
+            expected_literal: "false".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RBrace,
+            expected_literal: "}".to_string(),
         });
 
         let mut l = Lexer::new(input.to_string());
