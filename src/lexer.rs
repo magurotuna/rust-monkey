@@ -10,7 +10,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    fn new(input: String) -> Self {
+    pub fn new(input: String) -> Self {
         let mut l = Lexer {
             input: input.chars().collect(),
             ..Default::default()
@@ -19,7 +19,7 @@ impl Lexer {
         l
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token = match self.ch {
             '=' => {
