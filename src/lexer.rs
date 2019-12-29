@@ -38,6 +38,12 @@ impl Lexer {
             ')' => Token::new(TokenType::RParen, self.ch.to_string()),
             ',' => Token::new(TokenType::Comma, self.ch.to_string()),
             '+' => Token::new(TokenType::Plus, self.ch.to_string()),
+            '-' => Token::new(TokenType::Minus, self.ch.to_string()),
+            '!' => Token::new(TokenType::Bang, self.ch.to_string()),
+            '/' => Token::new(TokenType::Slash, self.ch.to_string()),
+            '*' => Token::new(TokenType::Asterisk, self.ch.to_string()),
+            '<' => Token::new(TokenType::Lt, self.ch.to_string()),
+            '>' => Token::new(TokenType::Gt, self.ch.to_string()),
             '{' => Token::new(TokenType::LBrace, self.ch.to_string()),
             '}' => Token::new(TokenType::RBrace, self.ch.to_string()),
             c if (c as u8) == 0 => Token::new(TokenType::Eof, "".to_string()),
@@ -99,60 +105,66 @@ fn is_digit(ch: char) -> bool {
     '0' <= ch && ch <= '9'
 }
 
-#[test]
-fn test_next_token1() {
-    let input = "=+(){},;";
+#[cfg(test)]
+mod tests {
+    use super::*;
 
     struct TokenTest {
         expected_type: TokenType,
         expected_literal: String,
-    };
-    let mut tests = Vec::new();
-    tests.push(TokenTest {
-        expected_type: TokenType::Assign,
-        expected_literal: "=".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Plus,
-        expected_literal: "+".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::LParen,
-        expected_literal: "(".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::RParen,
-        expected_literal: ")".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::LBrace,
-        expected_literal: "{".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::RBrace,
-        expected_literal: "}".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Comma,
-        expected_literal: ",".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Semicolon,
-        expected_literal: ";".to_string(),
-    });
-
-    let mut l = Lexer::new(input.to_string());
-
-    for t in tests {
-        let tok = l.next_token();
-        assert_eq!(tok.token_type, t.expected_type);
-        assert_eq!(tok.literal, t.expected_literal);
     }
-}
 
-#[test]
-fn test_next_token2() {
-    let input = r#"let five = 5;
+    #[test]
+    fn test_next_token1() {
+        let input = "=+(){},;";
+
+        let mut tests = Vec::new();
+        tests.push(TokenTest {
+            expected_type: TokenType::Assign,
+            expected_literal: "=".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Plus,
+            expected_literal: "+".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LParen,
+            expected_literal: "(".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RParen,
+            expected_literal: ")".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LBrace,
+            expected_literal: "{".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RBrace,
+            expected_literal: "}".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Comma,
+            expected_literal: ",".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+
+        let mut l = Lexer::new(input.to_string());
+
+        for (i, t) in tests.into_iter().enumerate() {
+            println!("Test {}", i);
+            let tok = l.next_token();
+            assert_eq!(tok.token_type, t.expected_type);
+            assert_eq!(tok.literal, t.expected_literal);
+        }
+    }
+
+    #[test]
+    fn test_next_token2() {
+        let input = r#"let five = 5;
 let ten = 10;
 
 let add = fn(x, y) {
@@ -162,162 +174,203 @@ let add = fn(x, y) {
 let result = add(five, ten);
     "#;
 
-    struct TokenTest {
-        expected_type: TokenType,
-        expected_literal: String,
-    };
-    let mut tests = Vec::new();
-    tests.push(TokenTest {
-        expected_type: TokenType::Let,
-        expected_literal: "let".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "five".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Assign,
-        expected_literal: "=".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Int,
-        expected_literal: "5".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Semicolon,
-        expected_literal: ";".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Let,
-        expected_literal: "let".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "ten".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Assign,
-        expected_literal: "=".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Int,
-        expected_literal: "10".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Semicolon,
-        expected_literal: ";".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Let,
-        expected_literal: "let".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "add".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Assign,
-        expected_literal: "=".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Function,
-        expected_literal: "fn".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::LParen,
-        expected_literal: "(".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "x".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Comma,
-        expected_literal: ",".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "y".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::RParen,
-        expected_literal: ")".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::LBrace,
-        expected_literal: "{".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "x".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Plus,
-        expected_literal: "+".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "y".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Semicolon,
-        expected_literal: ";".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::RBrace,
-        expected_literal: "}".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Semicolon,
-        expected_literal: ";".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Let,
-        expected_literal: "let".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "result".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Assign,
-        expected_literal: "=".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "add".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::LParen,
-        expected_literal: "(".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "five".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Comma,
-        expected_literal: ",".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Identifier,
-        expected_literal: "ten".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::RParen,
-        expected_literal: ")".to_string(),
-    });
-    tests.push(TokenTest {
-        expected_type: TokenType::Semicolon,
-        expected_literal: ";".to_string(),
-    });
+        let mut tests = Vec::new();
+        tests.push(TokenTest {
+            expected_type: TokenType::Let,
+            expected_literal: "let".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "five".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Assign,
+            expected_literal: "=".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "5".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Let,
+            expected_literal: "let".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "ten".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Assign,
+            expected_literal: "=".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "10".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Let,
+            expected_literal: "let".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "add".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Assign,
+            expected_literal: "=".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Function,
+            expected_literal: "fn".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LParen,
+            expected_literal: "(".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "x".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Comma,
+            expected_literal: ",".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "y".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RParen,
+            expected_literal: ")".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LBrace,
+            expected_literal: "{".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "x".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Plus,
+            expected_literal: "+".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "y".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RBrace,
+            expected_literal: "}".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Let,
+            expected_literal: "let".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "result".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Assign,
+            expected_literal: "=".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "add".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::LParen,
+            expected_literal: "(".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "five".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Comma,
+            expected_literal: ",".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Identifier,
+            expected_literal: "ten".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::RParen,
+            expected_literal: ")".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
 
-    let mut l = Lexer::new(input.to_string());
+        let mut l = Lexer::new(input.to_string());
 
-    for (i, t) in tests.into_iter().enumerate() {
-        let tok = l.next_token();
-        println!("Test {}", i);
-        assert_eq!(tok.token_type, t.expected_type);
-        assert_eq!(tok.literal, t.expected_literal);
+        for (i, t) in tests.into_iter().enumerate() {
+            let tok = l.next_token();
+            println!("Test {}", i);
+            assert_eq!(tok.token_type, t.expected_type);
+            assert_eq!(tok.literal, t.expected_literal);
+        }
+    }
+
+    #[test]
+    fn test_next_token3() {
+        let input = "<>!-/*5";
+
+        let mut tests = Vec::new();
+        tests.push(TokenTest {
+            expected_type: TokenType::Lt,
+            expected_literal: "<".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Gt,
+            expected_literal: ">".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Bang,
+            expected_literal: "!".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Minus,
+            expected_literal: "-".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Slash,
+            expected_literal: "/".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Asterisk,
+            expected_literal: "*".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "5".to_string(),
+        });
+
+        let mut l = Lexer::new(input.to_string());
+
+        for (i, t) in tests.into_iter().enumerate() {
+            let tok = l.next_token();
+            println!("Test {}", i);
+            assert_eq!(tok.token_type, t.expected_type);
+            assert_eq!(tok.literal, t.expected_literal);
+        }
     }
 }

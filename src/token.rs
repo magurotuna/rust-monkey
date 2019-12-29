@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 lazy_static! {
-    static ref keywords: HashMap<&'static str, TokenType> = {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
         let mut m = HashMap::new();
         m.insert("fn", TokenType::Function);
         m.insert("let", TokenType::Let);
@@ -10,7 +10,7 @@ lazy_static! {
 }
 
 pub fn lookup_identifier(identifier: &str) -> TokenType {
-    match (*keywords).get(identifier) {
+    match (*KEYWORDS).get(identifier) {
         Some(&token_type) => token_type,
         None => TokenType::Identifier,
     }
@@ -46,6 +46,12 @@ pub enum TokenType {
     Int,
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+    Lt,
+    Gt,
     Comma,
     Semicolon,
     LParen,
