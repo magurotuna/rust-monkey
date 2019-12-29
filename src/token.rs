@@ -65,6 +65,8 @@ pub enum TokenType {
     Slash,
     Lt,
     Gt,
+    Eq,
+    NotEq,
     Comma,
     Semicolon,
     LParen,

@@ -19,27 +19,31 @@ impl Lexer {
         l
     }
 
-    fn read_char(&mut self) {
-        if self.read_position >= self.input.len() {
-            self.ch = 0 as char; // null character
-        } else {
-            self.ch = self.input[self.read_position];
-        }
-        self.position = self.read_position;
-        self.read_position += 1;
-    }
-
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token = match self.ch {
-            '=' => Token::new(TokenType::Assign, self.ch.to_string()),
+            '=' => {
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    Token::new(TokenType::Eq, "==".to_string())
+                } else {
+                    Token::new(TokenType::Assign, self.ch.to_string())
+                }
+            }
             ';' => Token::new(TokenType::Semicolon, self.ch.to_string()),
             '(' => Token::new(TokenType::LParen, self.ch.to_string()),
             ')' => Token::new(TokenType::RParen, self.ch.to_string()),
             ',' => Token::new(TokenType::Comma, self.ch.to_string()),
             '+' => Token::new(TokenType::Plus, self.ch.to_string()),
             '-' => Token::new(TokenType::Minus, self.ch.to_string()),
-            '!' => Token::new(TokenType::Bang, self.ch.to_string()),
+            '!' => {
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    Token::new(TokenType::NotEq, "!=".to_string())
+                } else {
+                    Token::new(TokenType::Bang, self.ch.to_string())
+                }
+            }
             '/' => Token::new(TokenType::Slash, self.ch.to_string()),
             '*' => Token::new(TokenType::Asterisk, self.ch.to_string()),
             '<' => Token::new(TokenType::Lt, self.ch.to_string()),
@@ -68,6 +72,24 @@ impl Lexer {
         }
         self.read_char();
         token
+    }
+
+    fn peek_char(&self) -> char {
+        if self.read_position >= self.input.len() {
+            0 as char
+        } else {
+            self.input[self.read_position]
+        }
+    }
+
+    fn read_char(&mut self) {
+        if self.read_position >= self.input.len() {
+            self.ch = 0 as char; // null character
+        } else {
+            self.ch = self.input[self.read_position];
+        }
+        self.position = self.read_position;
+        self.read_position += 1;
     }
 
     fn read_identifier(&mut self) -> Option<String> {
@@ -452,6 +474,57 @@ if (5 < 10) {
         tests.push(TokenTest {
             expected_type: TokenType::RBrace,
             expected_literal: "}".to_string(),
+        });
+
+        let mut l = Lexer::new(input.to_string());
+
+        for (i, t) in tests.into_iter().enumerate() {
+            let tok = l.next_token();
+            println!("Test {}", i);
+            assert_eq!(tok.token_type, t.expected_type);
+            assert_eq!(tok.literal, t.expected_literal);
+        }
+    }
+
+    #[test]
+    fn test_next_token5() {
+        let input = r#"
+10 == 10;
+10 != 9;
+            "#;
+
+        let mut tests = Vec::new();
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "10".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Eq,
+            expected_literal: "==".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "10".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "10".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::NotEq,
+            expected_literal: "!=".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Int,
+            expected_literal: "9".to_string(),
+        });
+        tests.push(TokenTest {
+            expected_type: TokenType::Semicolon,
+            expected_literal: ";".to_string(),
         });
 
         let mut l = Lexer::new(input.to_string());
