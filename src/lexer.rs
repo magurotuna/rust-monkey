@@ -45,12 +45,12 @@ impl Lexer {
                 if is_letter(self.ch) {
                     match self.read_identifier() {
                         Some(literal) => Token::new(token::lookup_identifier(&literal), literal),
-                        None => Token::new(TokenType::Illegal, self.ch.to_string()), // FIXME
+                        None => Token::new(TokenType::Illegal, self.ch.to_string()), // FIXME... Is this necessary?
                     }
                 } else if is_digit(self.ch) {
                     match self.read_number() {
                         Some(num) => Token::new(TokenType::Int, num),
-                        None => Token::new(TokenType::Illegal, self.ch.to_string()), // FIXME
+                        None => Token::new(TokenType::Illegal, self.ch.to_string()), // FIXME... Is this necessary?
                     }
                 } else {
                     Token::new(TokenType::Illegal, self.ch.to_string())
