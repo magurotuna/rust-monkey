@@ -12,20 +12,20 @@ pub trait Expression: Node {
     fn expression_node(&self);
 }
 
-struct Program {
+pub struct Program {
     statements: Vec<Box<dyn Statement>>,
 }
 
 impl Node for Program {
     fn token_literal(&self) -> &str {
-        match self.statements.len() {
-            0 => "",
-            _ => self.statements[0].token_literal(),
-        }
+        self.statements
+            .get(0)
+            .map(|s| s.token_literal())
+            .unwrap_or("")
     }
 }
 
-struct LetStatement<T: Expression> {
+pub struct LetStatement<T: Expression> {
     token: Token,
     name: Identifier,
     value: T,
@@ -49,7 +49,7 @@ where
     }
 }
 
-struct Identifier {
+pub struct Identifier {
     token: Token,
     value: String,
 }

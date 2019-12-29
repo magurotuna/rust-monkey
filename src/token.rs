@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::default::Default;
 
 lazy_static! {
     static ref KEYWORDS: HashMap<&'static str, TokenType> = {
@@ -47,6 +48,15 @@ impl Token {
             | TokenType::True
             | TokenType::False => true,
             _ => false,
+        }
+    }
+}
+
+impl Default for Token {
+    fn default() -> Self {
+        Self {
+            token_type: TokenType::Illegal,
+            literal: "".to_string(),
         }
     }
 }

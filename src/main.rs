@@ -3,6 +3,7 @@ extern crate lazy_static;
 
 mod ast;
 mod lexer;
+mod parser;
 mod repl;
 mod token;
 
