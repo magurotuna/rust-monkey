@@ -37,7 +37,7 @@ impl Parser {
     }
 
     fn next_token(&mut self) {
-        self.cur_token = mem::replace(&mut self.peek_token, Token::default());
+        self.cur_token = mem::take(&mut self.peek_token);
         self.peek_token = self.lexer.next_token();
     }
 
