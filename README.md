@@ -1,3 +1,3 @@
-![](https://github.com/magurotuna/rust-monkey/workflows/CI/badge.svg?branch=master)
+![](https://github.com/magurotuna/rust-monkey/workflows/CI/badge.svg)
 
 # rust-monkey
