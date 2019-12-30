@@ -18,8 +18,11 @@ type ActualTokenType = TokenType;
 
 #[derive(Error, Debug, PartialEq)]
 enum MonkeyParseError {
-    #[error("expected next token to be {0:?}, got {1:?} instead")]
-    InvalidToken(ExpectedTokenType, ActualTokenType),
+    #[error("expected next token to be {expected:?}, got {actual:?} instead")]
+    InvalidToken {
+        expected: TokenType,
+        actual: TokenType,
+    },
 }
 
 impl Parser {
@@ -112,7 +115,10 @@ impl Parser {
     }
 
     fn peek_error(&mut self, expected_token_type: &TokenType) {
-        let err = MonkeyParseError::InvalidToken(*expected_token_type, self.peek_token.token_type);
+        let err = MonkeyParseError::InvalidToken {
+            expected: *expected_token_type,
+            actual: self.peek_token.token_type,
+        };
         self.errors.push(err);
     }
 }
@@ -167,9 +173,18 @@ let 838383;
         assert_eq!(parser.errors.len(), 3);
 
         let expected_errors = [
-            MonkeyParseError::InvalidToken(TokenType::Assign, TokenType::Int),
-            MonkeyParseError::InvalidToken(TokenType::Identifier, TokenType::Assign),
-            MonkeyParseError::InvalidToken(TokenType::Identifier, TokenType::Int),
+            MonkeyParseError::InvalidToken {
+                expected: TokenType::Assign,
+                actual: TokenType::Int,
+            },
+            MonkeyParseError::InvalidToken {
+                expected: TokenType::Identifier,
+                actual: TokenType::Assign,
+            },
+            MonkeyParseError::InvalidToken {
+                expected: TokenType::Identifier,
+                actual: TokenType::Int,
+            },
         ];
         parser
             .errors
