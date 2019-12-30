@@ -4,11 +4,22 @@ use crate::token::{Token, TokenType};
 use anyhow::{anyhow, Result};
 use std::default::Default;
 use std::mem;
+use thiserror::Error;
 
 struct Parser {
     lexer: Lexer,
     cur_token: Token,
     peek_token: Token,
+    errors: Vec<MonkeyParseError>,
+}
+
+type ExpectedTokenType = TokenType;
+type ActualTokenType = TokenType;
+
+#[derive(Error, Debug, PartialEq)]
+enum MonkeyParseError {
+    #[error("expected next token to be {0:?}, got {1:?} instead")]
+    InvalidToken(ExpectedTokenType, ActualTokenType),
 }
 
 impl Parser {
@@ -17,6 +28,7 @@ impl Parser {
             lexer,
             cur_token: Token::default(),
             peek_token: Token::default(),
+            errors: Vec::new(),
         };
         // Load 2 tokens to set both cur_token & peek_token
         p.next_token();
@@ -31,9 +43,10 @@ impl Parser {
 
     fn parse_program(&mut self) -> Result<ast::Node> {
         let mut statements = Vec::new();
-        while self.cur_token.token_type != TokenType::Eof {
-            let stmt = self.parse_statement()?;
-            statements.push(stmt);
+        while !self.cur_token_is(&TokenType::Eof) {
+            if let Ok(stmt) = self.parse_statement() {
+                statements.push(stmt);
+            }
             self.next_token();
         }
         Ok(ast::Node::Program(statements))
@@ -93,8 +106,14 @@ impl Parser {
             self.next_token();
             true
         } else {
+            self.peek_error(t);
             false
         }
+    }
+
+    fn peek_error(&mut self, expected_token_type: &TokenType) {
+        let err = MonkeyParseError::InvalidToken(*expected_token_type, self.peek_token.token_type);
+        self.errors.push(err);
     }
 }
 
@@ -113,6 +132,7 @@ let foobar = 838383;
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
 
         if let ast::Node::Program(statements) = program {
             assert_eq!(statements.len(), 3);
@@ -130,5 +150,44 @@ let foobar = 838383;
         } else {
             panic!("Parse Error! {:?}", program);
         }
+    }
+
+    #[test]
+    fn test_let_statements_error() {
+        let input = r#"
+let x  5;
+let = 10;
+let 838383;
+            "#;
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+        assert_eq!(parser.errors.len(), 3);
+
+        let expected_errors = [
+            MonkeyParseError::InvalidToken(TokenType::Assign, TokenType::Int),
+            MonkeyParseError::InvalidToken(TokenType::Identifier, TokenType::Assign),
+            MonkeyParseError::InvalidToken(TokenType::Identifier, TokenType::Int),
+        ];
+        parser
+            .errors
+            .iter()
+            .zip(expected_errors.iter())
+            .for_each(|(actual, expected)| assert_eq!(actual, expected));
+    }
+
+    fn check_parser_errors(parser: &Parser) -> bool {
+        if parser.errors.len() == 0 {
+            return false;
+        }
+
+        println!("parser has {} errors", parser.errors.len());
+        parser
+            .errors
+            .iter()
+            .for_each(|err| println!("parser error: {}", err));
+        true
     }
 }
