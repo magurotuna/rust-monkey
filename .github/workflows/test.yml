@@ -13,7 +13,7 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - name: Check format
         run: ~/.cargo/bin/cargo fmt -- --check
-      - name: Lint by clippy
-        run: ~/.cargo/bin/cargo clippy -- -Dwarnings
+      # - name: Lint by clippy
+      #   run: ~/.cargo/bin/cargo clippy -- -Dwarnings
       - name: Test
         run: ~/.cargo/bin/cargo test
