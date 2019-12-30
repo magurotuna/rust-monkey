@@ -1,4 +1,4 @@
-name: rust-test
+name: CI
 
 on: [push]
 
@@ -8,6 +8,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
-      - uses: icepuma/rust-action@master
-        with:
-          args: cd integration-test && cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test
+      - name: Install rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+          rustup component add clippy rustfmt
+      - name: Check format
+        run: cargo fmt -- --check
+      - name: Lint by clippy
+        run: cargo clippy -- -Dwarnings
+      - name: Test
+        run: cargo test
