@@ -1,67 +1,25 @@
 use crate::token::Token;
 
-pub trait Node {
-    fn token_literal(&self) -> &str;
+#[derive(Debug)]
+pub enum Node {
+    Program(Vec<Statement>),
+    Statement(Statement),
+    Expression(Expression),
 }
 
-pub trait Statement: Node {
-    fn statement_node(&self);
+#[derive(Debug)]
+pub enum Expression {
+    Identifier(Identifier),
+    Dummy,
 }
 
-pub trait Expression: Node {
-    fn expression_node(&self);
+#[derive(Debug)]
+pub enum Statement {
+    Let(Identifier, Expression),
 }
 
-pub struct Program {
-    statements: Vec<Box<dyn Statement>>,
-}
-
-impl Node for Program {
-    fn token_literal(&self) -> &str {
-        self.statements
-            .get(0)
-            .map(|s| s.token_literal())
-            .unwrap_or("")
-    }
-}
-
-pub struct LetStatement<T: Expression> {
-    token: Token,
-    name: Identifier,
-    value: T,
-}
-
-impl<T> Statement for LetStatement<T>
-where
-    T: Expression,
-{
-    fn statement_node(&self) {
-        unimplemented!();
-    }
-}
-
-impl<T> Node for LetStatement<T>
-where
-    T: Expression,
-{
-    fn token_literal(&self) -> &str {
-        self.token.literal.as_str()
-    }
-}
-
+#[derive(Debug)]
 pub struct Identifier {
-    token: Token,
-    value: String,
-}
-
-impl Expression for Identifier {
-    fn expression_node(&self) {
-        unimplemented!();
-    }
-}
-
-impl Node for Identifier {
-    fn token_literal(&self) -> &str {
-        self.token.literal.as_str()
-    }
+    pub token: Token,
+    pub value: String,
 }

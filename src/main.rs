@@ -7,10 +7,11 @@ mod parser;
 mod repl;
 mod token;
 
+use anyhow::Result;
 use std::io;
 use whoami;
 
-fn main() {
+fn main() -> Result<()> {
     let username = whoami::username();
     println!(
         "Hello {}! This is the Monkey programming language!",
@@ -20,5 +21,6 @@ fn main() {
 
     let mut stdin = io::BufReader::new(io::stdin());
     let mut stdout = io::BufWriter::new(io::stdout());
-    repl::start(&mut stdin, &mut stdout).expect("Fatal error happened!");
+    repl::start(&mut stdin, &mut stdout)?;
+    Ok(())
 }
