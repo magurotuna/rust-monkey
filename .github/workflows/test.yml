@@ -11,6 +11,7 @@ jobs:
       - name: Install rust toolchain
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          ~/.cargo/bin/rustup update --force
       - name: Check format
         run: ~/.cargo/bin/cargo fmt -- --check
       # - name: Lint by clippy
