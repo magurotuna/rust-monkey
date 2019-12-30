@@ -58,6 +58,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Result<ast::Statement> {
         match self.cur_token.token_type {
             TokenType::Let => self.parse_let_statement(),
+            TokenType::Return => self.parse_return_statement(),
             _ => Err(anyhow!(
                 "Statement parse error. cur_token: {:?}, peek_token: {:?}",
                 self.cur_token,
@@ -94,6 +95,17 @@ impl Parser {
         }
 
         Ok(ast::Statement::Let(identifier, ast::Expression::Dummy)) // FIXME
+    }
+
+    fn parse_return_statement(&mut self) -> Result<ast::Statement> {
+        self.next_token();
+
+        // TODO: skip to read the expression until encountering semicolon.
+        while !self.cur_token_is(&TokenType::Semicolon) {
+            self.next_token();
+        }
+
+        Ok(ast::Statement::Return(ast::Expression::Dummy)) // FIXME
     }
 
     fn cur_token_is(&self, t: &TokenType) -> bool {
@@ -191,6 +203,31 @@ let 838383;
             .iter()
             .zip(expected_errors.iter())
             .for_each(|(actual, expected)| assert_eq!(actual, expected));
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = r#"
+return 5;
+return 10;
+return 993322;
+            "#;
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+
+        if let ast::Node::Program(statements) = program {
+            assert_eq!(statements.len(), 3);
+
+            statements.iter().for_each(|stmt| match *stmt {
+                ast::Statement::Return(_) => (),
+                _ => panic!("the statement expected to be `return`, got {:?}", stmt),
+            });
+        } else {
+            panic!("Parse Error! {:?}", program);
+        }
     }
 
     fn check_parser_errors(parser: &Parser) -> bool {
