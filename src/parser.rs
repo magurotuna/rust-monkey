@@ -13,9 +13,6 @@ struct Parser {
     errors: Vec<MonkeyParseError>,
 }
 
-type ExpectedTokenType = TokenType;
-type ActualTokenType = TokenType;
-
 #[derive(Error, Debug, PartialEq)]
 enum MonkeyParseError {
     #[error("expected next token to be {expected:?}, got {actual:?} instead")]
@@ -44,7 +41,7 @@ impl Parser {
         self.peek_token = self.lexer.next_token();
     }
 
-    fn parse_program(&mut self) -> Result<ast::Node> {
+    fn parse_program(&mut self) -> Result<ast::Program> {
         let mut statements = Vec::new();
         while !self.cur_token_is(&TokenType::Eof) {
             if let Ok(stmt) = self.parse_statement() {
@@ -52,7 +49,7 @@ impl Parser {
             }
             self.next_token();
         }
-        Ok(ast::Node::Program(statements))
+        Ok(statements)
     }
 
     fn parse_statement(&mut self) -> Result<ast::Statement> {
@@ -76,10 +73,7 @@ impl Parser {
             ));
         }
 
-        let identifier = ast::Identifier {
-            token: self.cur_token.clone(),         // cannot get rid of `clone`?
-            value: self.cur_token.literal.clone(), // cannot get rid of `clone`?
-        };
+        let identifier = ast::Identifier(self.cur_token.literal.clone()); // cannot get rid of `clone`?
 
         if !self.expect_peek(&TokenType::Assign) {
             return Err(anyhow!(
@@ -149,24 +143,21 @@ let foobar = 838383;
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
 
-        let program = parser.parse_program().unwrap();
+        let statements = parser.parse_program().unwrap();
         check_parser_errors(&parser);
 
-        if let ast::Node::Program(statements) = program {
-            assert_eq!(statements.len(), 3);
+        assert_eq!(statements.len(), 3);
 
-            let expected = vec!["x", "y", "foobar"];
-            for (i, t) in expected.into_iter().enumerate() {
-                let stmt = statements.get(i).unwrap();
-                match *stmt {
-                    ast::Statement::Let(ref ident, _) => {
-                        assert_eq!(ident.value, t);
-                    }
-                    _ => panic!(""),
+        let expected = vec!["x", "y", "foobar"];
+        for (i, t) in expected.into_iter().enumerate() {
+            let stmt = statements.get(i).unwrap();
+            match *stmt {
+                ast::Statement::Let(ref ident, _) => {
+                    let ast::Identifier(value) = ident;
+                    assert_eq!(value, t);
                 }
+                _ => panic!(""),
             }
-        } else {
-            panic!("Parse Error! {:?}", program);
         }
     }
 
@@ -215,19 +206,15 @@ return 993322;
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
 
-        let program = parser.parse_program().unwrap();
+        let statements = parser.parse_program().unwrap();
         check_parser_errors(&parser);
 
-        if let ast::Node::Program(statements) = program {
-            assert_eq!(statements.len(), 3);
+        assert_eq!(statements.len(), 3);
 
-            statements.iter().for_each(|stmt| match *stmt {
-                ast::Statement::Return(_) => (),
-                _ => panic!("the statement expected to be `return`, got {:?}", stmt),
-            });
-        } else {
-            panic!("Parse Error! {:?}", program);
-        }
+        statements.iter().for_each(|stmt| match *stmt {
+            ast::Statement::Return(_) => (),
+            _ => panic!("the statement expected to be `return`, got {:?}", stmt),
+        });
     }
 
     fn check_parser_errors(parser: &Parser) -> bool {

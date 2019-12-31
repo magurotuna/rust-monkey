@@ -1,8 +1,9 @@
 use crate::token::Token;
 
+pub type Program = Vec<Statement>;
+
 #[derive(Debug)]
 pub enum Node {
-    Program(Vec<Statement>),
     Statement(Statement),
     Expression(Expression),
 }
@@ -17,10 +18,8 @@ pub enum Expression {
 pub enum Statement {
     Let(Identifier, Expression),
     Return(Expression),
+    ExpressionStatement(Expression),
 }
 
 #[derive(Debug)]
-pub struct Identifier {
-    pub token: Token,
-    pub value: String,
-}
+pub struct Identifier(pub String);
