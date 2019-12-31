@@ -49,7 +49,7 @@ impl Parser {
             }
             self.next_token();
         }
-        Ok(statements)
+        Ok(ast::Program(statements))
     }
 
     fn parse_statement(&mut self) -> Result<ast::Statement> {
@@ -143,7 +143,7 @@ let foobar = 838383;
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
 
-        let statements = parser.parse_program().unwrap();
+        let ast::Program(statements) = parser.parse_program().unwrap();
         check_parser_errors(&parser);
 
         assert_eq!(statements.len(), 3);
@@ -206,7 +206,7 @@ return 993322;
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
 
-        let statements = parser.parse_program().unwrap();
+        let ast::Program(statements) = parser.parse_program().unwrap();
         check_parser_errors(&parser);
 
         assert_eq!(statements.len(), 3);
