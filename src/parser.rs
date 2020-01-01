@@ -2,8 +2,24 @@ use crate::ast;
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use anyhow::{Error, Result};
+use std::collections::HashMap;
 use std::default::Default;
 use std::mem;
+
+lazy_static! {
+    static ref PRECEDENCES: HashMap<TokenType, Precedence> = {
+        let mut m = HashMap::new();
+        m.insert(TokenType::Eq, Precedence::Equals);
+        m.insert(TokenType::NotEq, Precedence::Equals);
+        m.insert(TokenType::Lt, Precedence::LessGreater);
+        m.insert(TokenType::Gt, Precedence::LessGreater);
+        m.insert(TokenType::Plus, Precedence::Sum);
+        m.insert(TokenType::Minus, Precedence::Sum);
+        m.insert(TokenType::Slash, Precedence::Product);
+        m.insert(TokenType::Asterisk, Precedence::Product);
+        m
+    };
+}
 
 struct Parser {
     lexer: Lexer,
@@ -21,6 +37,8 @@ enum MonkeyParseError {
     },
     #[error("unable to parse an integer literal, got `{0}`")]
     UnableToParseIntegerLiteral(String),
+    #[error("prefix parse function for `{0:?}` not found")]
+    NoPrefixParseFn(TokenType),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -121,15 +139,33 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<ast::Expression> {
-        match self.cur_token.token_type {
+        let mut left_expr = match self.cur_token.token_type {
             TokenType::Identifier => self.parse_identifier(),
             TokenType::Int => self.parse_integer_literal(),
             TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
             x => {
-                println!("Unknown token appeared: {:?}", x);
-                Err(anyhow::anyhow!("not implemented yet")) // FIXME
+                let err = MonkeyParseError::NoPrefixParseFn(x);
+                Err(Error::from(Box::new(err)))
+            }
+        }?;
+
+        while !self.peek_token_is(&TokenType::Semicolon) && precedence < self.peek_precedence() {
+            match self.peek_token.token_type {
+                TokenType::Plus
+                | TokenType::Minus
+                | TokenType::Slash
+                | TokenType::Asterisk
+                | TokenType::Eq
+                | TokenType::NotEq
+                | TokenType::Lt
+                | TokenType::Gt => {
+                    self.next_token();
+                    left_expr = self.parse_infix_expression(Box::new(left_expr))?;
+                }
+                _ => break,
             }
         }
+        Ok(left_expr)
     }
 
     fn parse_identifier(&self) -> Result<ast::Expression> {
@@ -153,6 +189,20 @@ impl Parser {
         Ok(ast::Expression::Prefix {
             token,
             operator,
+            right: Box::new(right),
+        })
+    }
+
+    fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Result<ast::Expression> {
+        let token = self.cur_token.clone();
+        let operator = self.cur_token.literal.clone();
+        let precedence = self.cur_precedence();
+        self.next_token();
+        let right = self.parse_expression(precedence)?;
+        Ok(ast::Expression::Infix {
+            token,
+            operator,
+            left,
             right: Box::new(right),
         })
     }
@@ -181,6 +231,20 @@ impl Parser {
             actual: self.peek_token.token_type,
         };
         self.errors.push(Error::from(Box::new(err)));
+    }
+
+    fn cur_precedence(&self) -> Precedence {
+        match (*PRECEDENCES).get(&self.cur_token.token_type) {
+            Some(&p) => p,
+            None => Precedence::Lowest,
+        }
+    }
+
+    fn peek_precedence(&self) -> Precedence {
+        match (*PRECEDENCES).get(&self.peek_token.token_type) {
+            Some(&p) => p,
+            None => Precedence::Lowest,
+        }
     }
 }
 
@@ -366,6 +430,69 @@ return 993322;
             } else {
                 panic!(
                     "prefix expression cannot be parsed properly. statement: {}",
+                    statements.get(0).unwrap()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_infix_expressions() {
+        struct InfixTest {
+            input: &'static str,
+            left_value: i64,
+            operator: &'static str,
+            right_value: i64,
+        };
+        impl InfixTest {
+            fn new(
+                input: &'static str,
+                left_value: i64,
+                operator: &'static str,
+                right_value: i64,
+            ) -> Self {
+                InfixTest {
+                    input,
+                    left_value,
+                    operator,
+                    right_value,
+                }
+            }
+        }
+        let infix_tests = [
+            InfixTest::new("5 + 2;", 5, "+", 2),
+            InfixTest::new("5 - 2;", 5, "-", 2),
+            InfixTest::new("5 * 2;", 5, "*", 2),
+            InfixTest::new("5 / 2;", 5, "/", 2),
+            InfixTest::new("5 > 2;", 5, ">", 2),
+            InfixTest::new("5 < 2;", 5, "<", 2),
+            InfixTest::new("5 == 2;", 5, "==", 2),
+            InfixTest::new("5 != 2;", 5, "!=", 2),
+        ];
+
+        for test in infix_tests.iter() {
+            let lexer = Lexer::new(test.input.to_string());
+            let mut parser = Parser::new(lexer);
+
+            let ast::Program(statements) = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
+
+            assert_eq!(statements.len(), 1);
+
+            use ast::{Expression, Identifier, Statement};
+            if let Some(Statement::ExpressionStatement(Expression::Infix {
+                ref operator,
+                ref right,
+                ref left,
+                ..
+            })) = statements.get(0)
+            {
+                test_integer_literal(left, test.left_value);
+                assert_eq!(operator, test.operator);
+                test_integer_literal(right, test.right_value);
+            } else {
+                panic!(
+                    "infix expression cannot be parsed properly. statement: {}",
                     statements.get(0).unwrap()
                 );
             }

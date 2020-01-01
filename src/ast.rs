@@ -19,6 +19,12 @@ pub enum Expression {
         operator: String,
         right: Box<Expression>,
     },
+    Infix {
+        token: Token,
+        operator: String,
+        right: Box<Expression>,
+        left: Box<Expression>,
+    },
     Dummy,
 }
 
@@ -66,6 +72,12 @@ impl fmt::Display for Expression {
                 ref right,
                 ..
             } => write!(f, "({}{})", operator, right),
+            Expression::Infix {
+                ref operator,
+                ref right,
+                ref left,
+                ..
+            } => write!(f, "({}{}{})", left, operator, right),
             Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
     }
