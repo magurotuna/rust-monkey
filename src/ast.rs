@@ -77,7 +77,7 @@ impl fmt::Display for Expression {
                 ref right,
                 ref left,
                 ..
-            } => write!(f, "({}{}{})", left, operator, right),
+            } => write!(f, "({} {} {})", left, operator, right),
             Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
     }

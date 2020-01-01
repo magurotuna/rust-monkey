@@ -478,6 +478,42 @@ return 993322;
         }
     }
 
+    #[test]
+    fn test_operator_precedence_parsing() {
+        #[derive(new)]
+        struct PrecedenceTest {
+            input: &'static str,
+            expected: &'static str,
+        };
+
+        let precedence_tests = [
+            PrecedenceTest::new("-a * b", "((-a) * b)"),
+            PrecedenceTest::new("!-a", "(!(-a))"),
+            PrecedenceTest::new("a + b + c", "((a + b) + c)"),
+            PrecedenceTest::new("a + b - c", "((a + b) - c)"),
+            PrecedenceTest::new("a * b * c", "((a * b) * c)"),
+            PrecedenceTest::new("a * b / c", "((a * b) / c)"),
+            PrecedenceTest::new("a + b / c", "(a + (b / c))"),
+            PrecedenceTest::new("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
+            PrecedenceTest::new("3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"),
+            PrecedenceTest::new("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
+            PrecedenceTest::new("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"),
+            PrecedenceTest::new(
+                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            ),
+        ];
+
+        for test in precedence_tests.iter() {
+            let lexer = Lexer::new(test.input.to_string());
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
+            assert_eq!(&format!("{}", program), test.expected);
+        }
+    }
+
     fn test_integer_literal(il: &ast::Expression, value: i64) {
         if let ast::Expression::IntegerLiteral(ref int) = il {
             assert_eq!(int, &value);
