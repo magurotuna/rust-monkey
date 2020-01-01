@@ -13,6 +13,7 @@ pub enum Node {
 #[derive(Debug)]
 pub enum Expression {
     Identifier(Identifier),
+    IntegerLiteral(i64),
     Dummy,
 }
 
@@ -54,6 +55,7 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Expression::Identifier(ref ident) => write!(f, "{}", ident),
+            Expression::IntegerLiteral(ref val) => write!(f, "{}", val),
             Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
     }
