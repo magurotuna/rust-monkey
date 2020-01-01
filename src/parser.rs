@@ -520,7 +520,18 @@ return 993322;
         } else {
             panic!(
                 "given expression `{}` expected to be IntegerLiteral, but NOT",
-                &il
+                il
+            );
+        }
+    }
+
+    fn test_identifier(expr: &ast::Expression, value: &str) {
+        if let ast::Expression::Identifier(ast::Identifier(ref ident)) = expr {
+            assert_eq!(ident, value);
+        } else {
+            panic!(
+                "given expression `{}` expected to be Identifier, but NOT",
+                expr
             );
         }
     }
