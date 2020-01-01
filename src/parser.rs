@@ -391,22 +391,15 @@ return 993322;
 
     #[test]
     fn test_parsing_prefix_expressions() {
+        #[derive(new)]
         struct PrefixTest {
             input: &'static str,
             operator: &'static str,
             int_value: i64,
         };
         let prefix_tests = [
-            PrefixTest {
-                input: "!5;",
-                operator: "!",
-                int_value: 5,
-            },
-            PrefixTest {
-                input: "-15;",
-                operator: "-",
-                int_value: 15,
-            },
+            PrefixTest::new("!5;", "!", 5),
+            PrefixTest::new("-15;", "-", 15),
         ];
 
         for test in prefix_tests.iter() {
@@ -438,27 +431,13 @@ return 993322;
 
     #[test]
     fn test_parsing_infix_expressions() {
+        #[derive(new)]
         struct InfixTest {
             input: &'static str,
             left_value: i64,
             operator: &'static str,
             right_value: i64,
         };
-        impl InfixTest {
-            fn new(
-                input: &'static str,
-                left_value: i64,
-                operator: &'static str,
-                right_value: i64,
-            ) -> Self {
-                InfixTest {
-                    input,
-                    left_value,
-                    operator,
-                    right_value,
-                }
-            }
-        }
         let infix_tests = [
             InfixTest::new("5 + 2;", 5, "+", 2),
             InfixTest::new("5 - 2;", 5, "-", 2),

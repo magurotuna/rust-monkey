@@ -2,6 +2,8 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate thiserror;
+#[macro_use]
+extern crate derive_new;
 
 mod ast;
 mod lexer;
