@@ -124,8 +124,9 @@ impl Parser {
         match self.cur_token.token_type {
             TokenType::Identifier => self.parse_identifier(),
             TokenType::Int => self.parse_integer_literal(),
+            TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
             x => {
-                println!("{:?}", x);
+                println!("Unknown token appeared: {:?}", x);
                 Err(anyhow::anyhow!("not implemented yet")) // FIXME
             }
         }
@@ -142,6 +143,18 @@ impl Parser {
             MonkeyParseError::UnableToParseIntegerLiteral(self.cur_token.literal.clone())
         })?;
         Ok(ast::Expression::IntegerLiteral(val))
+    }
+
+    fn parse_prefix_expression(&mut self) -> Result<ast::Expression> {
+        let token = self.cur_token.clone();
+        let operator = self.cur_token.literal.clone();
+        self.next_token();
+        let right = self.parse_expression(Precedence::Prefix)?;
+        Ok(ast::Expression::Prefix {
+            token,
+            operator,
+            right: Box::new(right),
+        })
     }
 
     fn cur_token_is(&self, t: &TokenType) -> bool {
@@ -308,6 +321,64 @@ return 993322;
             panic!(
                 "integer literal cannot be parsed properly. statement: {}",
                 statements.get(0).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        struct PrefixTest {
+            input: &'static str,
+            operator: &'static str,
+            int_value: i64,
+        };
+        let prefix_tests = [
+            PrefixTest {
+                input: "!5;",
+                operator: "!",
+                int_value: 5,
+            },
+            PrefixTest {
+                input: "-15;",
+                operator: "-",
+                int_value: 15,
+            },
+        ];
+
+        for test in prefix_tests.iter() {
+            let lexer = Lexer::new(test.input.to_string());
+            let mut parser = Parser::new(lexer);
+
+            let ast::Program(statements) = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
+
+            assert_eq!(statements.len(), 1);
+
+            use ast::{Expression, Identifier, Statement};
+            if let Some(Statement::ExpressionStatement(Expression::Prefix {
+                ref operator,
+                ref right,
+                ..
+            })) = statements.get(0)
+            {
+                assert_eq!(operator, test.operator);
+                test_integer_literal(right, test.int_value);
+            } else {
+                panic!(
+                    "prefix expression cannot be parsed properly. statement: {}",
+                    statements.get(0).unwrap()
+                );
+            }
+        }
+    }
+
+    fn test_integer_literal(il: &ast::Expression, value: i64) {
+        if let ast::Expression::IntegerLiteral(ref int) = il {
+            assert_eq!(int, &value);
+        } else {
+            panic!(
+                "given expression `{}` expected to be IntegerLiteral, but NOT",
+                &il
             );
         }
     }

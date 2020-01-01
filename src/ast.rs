@@ -14,6 +14,11 @@ pub enum Node {
 pub enum Expression {
     Identifier(Identifier),
     IntegerLiteral(i64),
+    Prefix {
+        token: Token,
+        operator: String,
+        right: Box<Expression>,
+    },
     Dummy,
 }
 
@@ -56,6 +61,11 @@ impl fmt::Display for Expression {
         match *self {
             Expression::Identifier(ref ident) => write!(f, "{}", ident),
             Expression::IntegerLiteral(ref val) => write!(f, "{}", val),
+            Expression::Prefix {
+                ref operator,
+                ref right,
+                ..
+            } => write!(f, "({}{})", operator, right),
             Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
     }
