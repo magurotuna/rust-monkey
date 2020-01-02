@@ -61,6 +61,37 @@ impl Default for Token {
     }
 }
 
+impl From<String> for Token {
+    fn from(literal: String) -> Self {
+        Token::new(TokenType::Identifier, literal)
+    }
+}
+
+impl From<&str> for Token {
+    fn from(literal: &str) -> Self {
+        Token::new(TokenType::Identifier, literal.to_string())
+    }
+}
+
+impl From<i64> for Token {
+    fn from(value: i64) -> Self {
+        Token::new(TokenType::Int, value.to_string())
+    }
+}
+
+impl From<bool> for Token {
+    fn from(value: bool) -> Self {
+        Token::new(
+            if value {
+                TokenType::True
+            } else {
+                TokenType::False
+            },
+            value.to_string(),
+        )
+    }
+}
+
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum TokenType {
     Illegal,

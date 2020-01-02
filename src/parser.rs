@@ -37,6 +37,8 @@ enum MonkeyParseError {
     },
     #[error("unable to parse an integer literal, got `{0}`")]
     UnableToParseIntegerLiteral(String),
+    #[error("unable to parse an boolean literal, got `{0}`")]
+    UnableToParseBooleanLiteral(String),
     #[error("prefix parse function for `{0:?}` not found")]
     NoPrefixParseFn(TokenType),
 }
@@ -142,6 +144,7 @@ impl Parser {
         let mut left_expr = match self.cur_token.token_type {
             TokenType::Identifier => self.parse_identifier(),
             TokenType::Int => self.parse_integer_literal(),
+            TokenType::True | TokenType::False => self.parse_boolean_literal(),
             TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
             x => {
                 let err = MonkeyParseError::NoPrefixParseFn(x);
@@ -179,6 +182,17 @@ impl Parser {
             MonkeyParseError::UnableToParseIntegerLiteral(self.cur_token.literal.clone())
         })?;
         Ok(ast::Expression::IntegerLiteral(val))
+    }
+
+    fn parse_boolean_literal(&self) -> Result<ast::Expression> {
+        match self.cur_token.token_type {
+            TokenType::True | TokenType::False => Ok(ast::Expression::BooleanLiteral(
+                self.cur_token_is(&TokenType::True),
+            )),
+            _ => Err(Error::from(Box::new(
+                MonkeyParseError::UnableToParseBooleanLiteral(self.cur_token.literal.clone()),
+            ))),
+        }
     }
 
     fn parse_prefix_expression(&mut self) -> Result<ast::Expression> {
@@ -390,6 +404,41 @@ return 993322;
     }
 
     #[test]
+    fn test_boolean_literal_expression() {
+        #[derive(new)]
+        struct BooleanTest {
+            input: &'static str,
+            expected: bool,
+        };
+        let boolean_test = [
+            BooleanTest::new("true;", true),
+            BooleanTest::new("false;", false),
+        ];
+
+        for test in boolean_test.iter() {
+            let lexer = Lexer::new(test.input.to_string());
+            let mut parser = Parser::new(lexer);
+
+            let ast::Program(statements) = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
+
+            assert_eq!(statements.len(), 1);
+
+            use ast::{Expression, Identifier, Statement};
+            if let Some(Statement::ExpressionStatement(Expression::BooleanLiteral(ref val))) =
+                statements.get(0)
+            {
+                assert_eq!(&test.expected, val);
+            } else {
+                panic!(
+                    "boolean literal cannot be parsed properly. statement: {}",
+                    statements.get(0).unwrap()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_parsing_prefix_expressions() {
         #[derive(new)]
         struct PrefixTest {
@@ -429,16 +478,17 @@ return 993322;
         }
     }
 
+    #[derive(new)]
+    struct InfixTest<T: Into<Token>> {
+        input: &'static str,
+        left_value: T,
+        operator: &'static str,
+        right_value: T,
+    }
+
     #[test]
-    fn test_parsing_infix_expressions() {
-        #[derive(new)]
-        struct InfixTest {
-            input: &'static str,
-            left_value: i64,
-            operator: &'static str,
-            right_value: i64,
-        };
-        let infix_tests = [
+    fn test_parsing_infix_integer_expressions() {
+        let infix_integer_tests = [
             InfixTest::new("5 + 2;", 5, "+", 2),
             InfixTest::new("5 - 2;", 5, "-", 2),
             InfixTest::new("5 * 2;", 5, "*", 2),
@@ -446,35 +496,60 @@ return 993322;
             InfixTest::new("5 > 2;", 5, ">", 2),
             InfixTest::new("5 < 2;", 5, "<", 2),
             InfixTest::new("5 == 2;", 5, "==", 2),
-            InfixTest::new("5 != 2;", 5, "!=", 2),
         ];
+        for test in infix_integer_tests.iter() {
+            assert_infix_expression(test);
+        }
+    }
 
-        for test in infix_tests.iter() {
-            let lexer = Lexer::new(test.input.to_string());
-            let mut parser = Parser::new(lexer);
+    #[test]
+    fn test_parsing_infix_identifier_expressions() {
+        let infix_identifier_tests = [
+            InfixTest::new("alice != bob;", "alice", "!=", "bob"),
+            InfixTest::new("foo * bar;", "foo", "*", "bar"),
+            InfixTest::new("hoge < piyo", "hoge", "<", "piyo"),
+        ];
+        for test in infix_identifier_tests.iter() {
+            assert_infix_expression(test);
+        }
+    }
 
-            let ast::Program(statements) = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
+    #[test]
+    fn test_parsing_infix_boolean_expressions() {
+        let infix_boolean_tests = [
+            InfixTest::new("true != false;", true, "!=", false),
+            InfixTest::new("true * false;", true, "*", false),
+            InfixTest::new("false < true", false, "<", true),
+        ];
+        for test in infix_boolean_tests.iter() {
+            assert_infix_expression(test);
+        }
+    }
 
-            assert_eq!(statements.len(), 1);
+    fn assert_infix_expression<T>(infix_test: &InfixTest<T>)
+    where
+        T: Into<Token> + Copy,
+    {
+        let lexer = Lexer::new(infix_test.input.to_string());
+        let mut parser = Parser::new(lexer);
 
-            use ast::{Expression, Identifier, Statement};
-            if let Some(Statement::ExpressionStatement(Expression::Infix {
-                ref operator,
-                ref right,
-                ref left,
-                ..
-            })) = statements.get(0)
-            {
-                test_integer_literal(left, test.left_value);
-                assert_eq!(operator, test.operator);
-                test_integer_literal(right, test.right_value);
-            } else {
-                panic!(
-                    "infix expression cannot be parsed properly. statement: {}",
-                    statements.get(0).unwrap()
-                );
-            }
+        let ast::Program(statements) = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+
+        assert_eq!(statements.len(), 1);
+
+        if let Some(ast::Statement::ExpressionStatement(ref expr)) = statements.get(0) {
+            test_infix_expression(
+                expr,
+                infix_test.left_value,
+                infix_test.operator,
+                infix_test.right_value,
+            );
+        } else {
+            panic!(
+                "infix expression cannot be parsed properly. statement: {}",
+                statements.get(0).unwrap()
+            );
         }
     }
 
@@ -533,6 +608,52 @@ return 993322;
                 "given expression `{}` expected to be Identifier, but NOT",
                 expr
             );
+        }
+    }
+
+    fn test_boolean_literal(expr: &ast::Expression, value: &bool) {
+        if let ast::Expression::BooleanLiteral(b) = expr {
+            assert_eq!(b, value);
+        } else {
+            panic!(
+                "given expression `{}` expected to be BooleanLiteral, but NOT",
+                expr
+            );
+        }
+    }
+
+    fn test_literal_expression(expr: &ast::Expression, expected: &Token) {
+        match expected.token_type {
+            TokenType::Identifier => test_identifier(expr, expected.literal.as_str()),
+            TokenType::Int => test_integer_literal(expr, expected.literal.parse().unwrap()),
+            TokenType::True | TokenType::False => {
+                test_boolean_literal(expr, &expected.literal.parse().unwrap())
+            }
+            _ => panic!("type of exp not handled. got={}", expr),
+        }
+    }
+
+    fn test_infix_expression<L, R>(
+        expr: &ast::Expression,
+        expected_left: L,
+        expected_operator: &str,
+        expected_right: R,
+    ) where
+        L: Into<Token>,
+        R: Into<Token>,
+    {
+        if let &ast::Expression::Infix {
+            ref operator,
+            ref right,
+            ref left,
+            ..
+        } = expr
+        {
+            assert_eq!(expected_operator, operator);
+            test_literal_expression(left, &expected_left.into());
+            test_literal_expression(right, &expected_right.into());
+        } else {
+            panic!("expr is not Expression. got={}", expr);
         }
     }
 
