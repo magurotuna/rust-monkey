@@ -213,11 +213,20 @@ impl Parser {
         self.expect_peek(&TokenType::LBrace)?;
         let consequence_stmts = self.parse_block_statement()?;
 
+        let alternative_stmts = if self.peek_token_is(&TokenType::Else) {
+            self.next_token();
+            self.expect_peek(&TokenType::LBrace)?;
+            let stmts = self.parse_block_statement()?;
+            Some(stmts)
+        } else {
+            None
+        };
+
         Ok(ast::Expression::If {
             token,
             condition: Box::new(condition_expr),
             consequence: consequence_stmts,
-            alternative: None,
+            alternative: alternative_stmts,
         })
     }
 
@@ -656,6 +665,59 @@ return 993322;
 
             // alternative assertion
             assert!(alternative.is_none());
+        } else {
+            panic!(
+                "prefix expression cannot be parsed properly. statement: {}",
+                statements.get(0).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let ast::Program(statements) = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+        assert_eq!(statements.len(), 1);
+
+        use ast::{BlockStatement, Expression, Identifier, Statement};
+        if let Some(Statement::ExpressionStatement(Expression::If {
+            ref condition,
+            ref consequence,
+            ref alternative,
+            ..
+        })) = statements.get(0)
+        {
+            // condition assertion
+            test_infix_expression(condition, "x", "<", "y");
+
+            // consequence assertion
+            let &BlockStatement(ref cons_stmts) = consequence;
+            assert_eq!(1, cons_stmts.len());
+            if let Some(Statement::ExpressionStatement(ref expr)) = cons_stmts.get(0) {
+                test_identifier(expr, "x");
+            } else {
+                panic!(
+                    "consequence block parse error. first statement: `{}`",
+                    cons_stmts.get(0).unwrap()
+                );
+            }
+
+            // alternative assertion
+            let BlockStatement(ref alt_stmts) = alternative.as_ref().unwrap();
+            assert_eq!(1, cons_stmts.len());
+            if let Some(Statement::ExpressionStatement(ref expr)) = alt_stmts.get(0) {
+                test_identifier(expr, "y");
+            } else {
+                panic!(
+                    "alternative block parse error. first statement: `{}`",
+                    alt_stmts.get(0).unwrap()
+                );
+            }
         } else {
             panic!(
                 "prefix expression cannot be parsed properly. statement: {}",
