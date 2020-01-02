@@ -26,6 +26,12 @@ pub enum Expression {
         right: Box<Expression>,
         left: Box<Expression>,
     },
+    If {
+        token: Token,
+        condition: Box<Expression>,
+        consequence: BlockStatement,
+        alternative: Option<BlockStatement>,
+    },
     Dummy,
 }
 
@@ -38,6 +44,9 @@ pub enum Statement {
 
 #[derive(Debug)]
 pub struct Identifier(pub String);
+
+#[derive(Debug)]
+pub struct BlockStatement(pub Vec<Statement>);
 
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -80,6 +89,21 @@ impl fmt::Display for Expression {
                 ref left,
                 ..
             } => write!(f, "({} {} {})", left, operator, right),
+            Expression::If {
+                ref condition,
+                ref consequence,
+                ref alternative,
+                ..
+            } => write!(
+                f,
+                "if{} {}{}",
+                condition,
+                consequence,
+                match *alternative {
+                    Some(ref alt) => format!("else {}", alt),
+                    None => "".to_string(),
+                }
+            ),
             Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
     }
@@ -101,5 +125,20 @@ impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let &Identifier(ref ident) = self;
         write!(f, "{}", ident)
+    }
+}
+
+impl fmt::Display for BlockStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let &BlockStatement(ref stmts) = self;
+        write!(
+            f,
+            "{}",
+            stmts
+                .iter()
+                .map(|s| format!("{}", s))
+                .collect::<Vec<_>>()
+                .join("")
+        )
     }
 }

@@ -41,8 +41,6 @@ enum MonkeyParseError {
     UnableToParseBooleanLiteral(String),
     #[error("prefix parse function for `{0:?}` not found")]
     NoPrefixParseFn(TokenType),
-    #[error("no matching parenthesis found, got `{0:?}`")]
-    NoMathingParenthesis(TokenType),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -96,23 +94,11 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Result<ast::Statement> {
-        if !self.expect_peek(&TokenType::Identifier) {
-            let err = MonkeyParseError::InvalidToken {
-                expected: TokenType::Identifier,
-                actual: self.peek_token.token_type,
-            };
-            return Err(Error::from(Box::new(err)));
-        }
+        self.expect_peek(&TokenType::Identifier)?;
 
         let identifier = ast::Identifier(self.cur_token.literal.clone()); // cannot get rid of `clone`?
 
-        if !self.expect_peek(&TokenType::Assign) {
-            let err = MonkeyParseError::InvalidToken {
-                expected: TokenType::Assign,
-                actual: self.peek_token.token_type,
-            };
-            return Err(Error::from(Box::new(err)));
-        }
+        self.expect_peek(&TokenType::Assign)?;
 
         // TODO: skip to read the expression until encountering semicolon.
         while !self.cur_token_is(&TokenType::Semicolon) {
@@ -149,6 +135,7 @@ impl Parser {
             TokenType::True | TokenType::False => self.parse_boolean_literal(),
             TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
             TokenType::LParen => self.parse_grouped_expression(),
+            TokenType::If => self.parse_if_expression(),
             x => {
                 let err = MonkeyParseError::NoPrefixParseFn(x);
                 Err(Error::from(Box::new(err)))
@@ -213,11 +200,25 @@ impl Parser {
     fn parse_grouped_expression(&mut self) -> Result<ast::Expression> {
         self.next_token();
         let expr = self.parse_expression(Precedence::Lowest)?;
-        if !self.expect_peek(&TokenType::RParen) {
-            let err = MonkeyParseError::NoMathingParenthesis(self.peek_token.token_type);
-            return Err(Error::from(Box::new(err)));
-        }
+        self.expect_peek(&TokenType::RParen)?;
         Ok(expr)
+    }
+
+    fn parse_if_expression(&mut self) -> Result<ast::Expression> {
+        let token = self.cur_token.clone();
+        self.expect_peek(&TokenType::LParen)?;
+        self.next_token();
+        let condition_expr = self.parse_expression(Precedence::Lowest)?;
+        self.expect_peek(&TokenType::RParen)?;
+        self.expect_peek(&TokenType::LBrace)?;
+        let consequence_stmts = self.parse_block_statement()?;
+
+        Ok(ast::Expression::If {
+            token,
+            condition: Box::new(condition_expr),
+            consequence: consequence_stmts,
+            alternative: None,
+        })
     }
 
     fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Result<ast::Expression> {
@@ -234,6 +235,19 @@ impl Parser {
         })
     }
 
+    fn parse_block_statement(&mut self) -> Result<ast::BlockStatement> {
+        let mut stmts = Vec::new();
+        self.next_token();
+
+        while !self.cur_token_is(&TokenType::RBrace) && !self.cur_token_is(&TokenType::Eof) {
+            let stmt = self.parse_statement()?;
+            stmts.push(stmt);
+            self.next_token();
+        }
+
+        Ok(ast::BlockStatement(stmts))
+    }
+
     fn cur_token_is(&self, t: &TokenType) -> bool {
         self.cur_token.token_type == *t
     }
@@ -242,22 +256,21 @@ impl Parser {
         self.peek_token.token_type == *t
     }
 
-    fn expect_peek(&mut self, t: &TokenType) -> bool {
+    fn expect_peek(&mut self, t: &TokenType) -> Result<()> {
         if self.peek_token_is(t) {
             self.next_token();
-            true
+            Ok(())
         } else {
-            self.peek_error(t);
-            false
+            Err(self.peek_error(t))
         }
     }
 
-    fn peek_error(&mut self, expected_token_type: &TokenType) {
+    fn peek_error(&mut self, expected_token_type: &TokenType) -> Error {
         let err = MonkeyParseError::InvalidToken {
             expected: *expected_token_type,
             actual: self.peek_token.token_type,
         };
-        self.errors.push(Error::from(Box::new(err)));
+        Error::from(Box::new(err))
     }
 
     fn cur_precedence(&self) -> Precedence {
@@ -604,6 +617,50 @@ return 993322;
             let program = parser.parse_program().unwrap();
             check_parser_errors(&parser);
             assert_eq!(&format!("{}", program), test.expected);
+        }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }";
+
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let ast::Program(statements) = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+        assert_eq!(statements.len(), 1);
+
+        use ast::{BlockStatement, Expression, Identifier, Statement};
+        if let Some(Statement::ExpressionStatement(Expression::If {
+            ref condition,
+            ref consequence,
+            ref alternative,
+            ..
+        })) = statements.get(0)
+        {
+            // condition assertion
+            test_infix_expression(condition, "x", "<", "y");
+
+            // consequence assertion
+            let &BlockStatement(ref cons_stmts) = consequence;
+            assert_eq!(1, cons_stmts.len());
+            if let Some(Statement::ExpressionStatement(ref expr)) = cons_stmts.get(0) {
+                test_identifier(expr, "x");
+            } else {
+                panic!(
+                    "consequence block parse error. first statement: `{}`",
+                    statements.get(0).unwrap()
+                );
+            }
+
+            // alternative assertion
+            assert!(alternative.is_none());
+        } else {
+            panic!(
+                "prefix expression cannot be parsed properly. statement: {}",
+                statements.get(0).unwrap()
+            );
         }
     }
 
