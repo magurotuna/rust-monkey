@@ -708,6 +708,53 @@ return 993322;
     }
 
     #[test]
+    fn test_function_parameters_parsing() {
+        #[derive(new)]
+        struct FnParamTest {
+            input: &'static str,
+            expected_params: Vec<&'static str>,
+        };
+        let tests = [
+            FnParamTest::new("fn() {}", vec![]),
+            FnParamTest::new("fn(x) {}", vec!["x"]),
+            FnParamTest::new("fn(x, y) {}", vec!["x", "y"]),
+            FnParamTest::new("fn(foo, bar, baz) {}", vec!["foo", "bar", "baz"]),
+            FnParamTest::new(
+                "fn(foo, bar, baz) { foo * bar - baz }",
+                vec!["foo", "bar", "baz"],
+            ),
+        ];
+
+        for test in tests.iter() {
+            let lexer = Lexer::new(test.input.to_string());
+            let mut parser = Parser::new(lexer);
+
+            use ast::{Expression, FunctionParameters, Identifier, Program, Statement};
+            let Program(statements) = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
+            assert_eq!(statements.len(), 1);
+
+            if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
+                parameters: FunctionParameters(ref params),
+                ..
+            })) = statements.get(0)
+            {
+                params
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, Identifier(ref ident))| {
+                        assert_eq!(test.expected_params[i], ident)
+                    });
+            } else {
+                panic!(
+                    "function literal cannot be parsed properly. statement: {}",
+                    statements.get(0).unwrap()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_if_expression() {
         let input = "if (x < y) { x }";
 
