@@ -136,6 +136,7 @@ impl Parser {
             TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
             TokenType::LParen => self.parse_grouped_expression(),
             TokenType::If => self.parse_if_expression(),
+            TokenType::Function => self.parse_function_literal(),
             x => {
                 let err = MonkeyParseError::NoPrefixParseFn(x);
                 Err(Error::from(Box::new(err)))
@@ -230,6 +231,19 @@ impl Parser {
         })
     }
 
+    fn parse_function_literal(&mut self) -> Result<ast::Expression> {
+        let token = self.cur_token.clone();
+        self.expect_peek(&TokenType::LParen)?;
+        let parameters = self.parse_function_parameters()?;
+        self.expect_peek(&TokenType::LBrace)?;
+        let body = self.parse_block_statement()?;
+        Ok(ast::Expression::FunctionLiteral {
+            token,
+            parameters,
+            body,
+        })
+    }
+
     fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Result<ast::Expression> {
         let token = self.cur_token.clone();
         let operator = self.cur_token.literal.clone();
@@ -255,6 +269,29 @@ impl Parser {
         }
 
         Ok(ast::BlockStatement(stmts))
+    }
+
+    fn parse_function_parameters(&mut self) -> Result<ast::FunctionParameters> {
+        let mut identifiers = Vec::new();
+
+        // no parameters
+        if self.peek_token_is(&TokenType::RParen) {
+            self.next_token();
+            return Ok(ast::FunctionParameters(identifiers));
+        }
+
+        self.next_token();
+
+        identifiers.push(ast::Identifier(self.cur_token.literal.clone()));
+
+        while self.peek_token_is(&TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            identifiers.push(ast::Identifier(self.cur_token.literal.clone()));
+        }
+
+        self.expect_peek(&TokenType::RParen)?;
+        Ok(ast::FunctionParameters(identifiers))
     }
 
     fn cur_token_is(&self, t: &TokenType) -> bool {
@@ -630,6 +667,47 @@ return 993322;
     }
 
     #[test]
+    fn test_function_literal_parsing() {
+        let input = "fn(x, y) { x + y; }";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        let ast::Program(statements) = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+        assert_eq!(statements.len(), 1);
+
+        use ast::{BlockStatement, Expression, FunctionParameters, Identifier, Statement};
+        if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
+            parameters: FunctionParameters(ref parameters),
+            ref body,
+            ..
+        })) = statements.get(0)
+        {
+            // parameters assertion
+            assert_eq!(parameters.len(), 2);
+            assert_eq!(parameters.get(0), Some(&Identifier("x".to_string())));
+            assert_eq!(parameters.get(1), Some(&Identifier("y".to_string())));
+
+            // function body assertion
+            let &BlockStatement(ref body_stmts) = body;
+            assert_eq!(body_stmts.len(), 1);
+            if let Some(Statement::ExpressionStatement(ref expr)) = body_stmts.get(0) {
+                test_infix_expression(expr, "x", "+", "y");
+            } else {
+                panic!(
+                    "function body block parse error. first statement: `{}`",
+                    body_stmts.get(0).unwrap()
+                );
+            }
+        } else {
+            panic!(
+                "prefix expression cannot be parsed properly. statement: {}",
+                statements.get(0).unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn test_if_expression() {
         let input = "if (x < y) { x }";
 
@@ -659,7 +737,7 @@ return 993322;
             } else {
                 panic!(
                     "consequence block parse error. first statement: `{}`",
-                    statements.get(0).unwrap()
+                    cons_stmts.get(0).unwrap()
                 );
             }
 

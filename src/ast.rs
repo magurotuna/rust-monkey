@@ -32,6 +32,11 @@ pub enum Expression {
         consequence: BlockStatement,
         alternative: Option<BlockStatement>,
     },
+    FunctionLiteral {
+        token: Token,
+        parameters: FunctionParameters,
+        body: BlockStatement,
+    },
     Dummy,
 }
 
@@ -42,11 +47,14 @@ pub enum Statement {
     ExpressionStatement(Expression),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Identifier(pub String);
 
 #[derive(Debug)]
 pub struct BlockStatement(pub Vec<Statement>);
+
+#[derive(Debug)]
+pub struct FunctionParameters(pub Vec<Identifier>);
 
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -103,6 +111,23 @@ impl fmt::Display for Expression {
                     Some(ref alt) => format!("else {}", alt),
                     None => "".to_string(),
                 }
+            ),
+            Expression::FunctionLiteral {
+                parameters: FunctionParameters(ref parameters),
+                ref body,
+                ..
+            } => write!(
+                f,
+                "fn({}) {}",
+                parameters
+                    .iter()
+                    .map(|p| {
+                        let Identifier(ref ident) = p;
+                        ident.to_string()
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                body,
             ),
             Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
