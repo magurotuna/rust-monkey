@@ -29,10 +29,10 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, literal: String) -> Self {
+    pub fn new<T: Into<String>>(token_type: TokenType, literal: T) -> Self {
         Token {
             token_type,
-            literal,
+            literal: literal.into(),
         }
     }
 

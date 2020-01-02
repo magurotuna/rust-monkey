@@ -17,6 +17,7 @@ lazy_static! {
         m.insert(TokenType::Minus, Precedence::Sum);
         m.insert(TokenType::Slash, Precedence::Product);
         m.insert(TokenType::Asterisk, Precedence::Product);
+        m.insert(TokenType::LParen, Precedence::Call);
         m
     };
 }
@@ -156,6 +157,10 @@ impl Parser {
                     self.next_token();
                     left_expr = self.parse_infix_expression(Box::new(left_expr))?;
                 }
+                TokenType::LParen => {
+                    self.next_token();
+                    left_expr = self.parse_call_expression(Box::new(left_expr))?;
+                }
                 _ => break,
             }
         }
@@ -256,6 +261,38 @@ impl Parser {
             left,
             right: Box::new(right),
         })
+    }
+
+    fn parse_call_expression(&mut self, left: Box<ast::Expression>) -> Result<ast::Expression> {
+        let token = self.cur_token.clone();
+        let args = self.parse_call_arguments()?;
+        Ok(ast::Expression::Call {
+            token,
+            function: left,
+            arguments: args,
+        })
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Box<ast::Expression>>> {
+        let mut args = Vec::new();
+
+        // no arguments
+        if self.peek_token_is(&TokenType::RParen) {
+            self.next_token();
+            return Ok(args);
+        }
+
+        self.next_token();
+        args.push(Box::new(self.parse_expression(Precedence::Lowest)?));
+
+        while self.peek_token_is(&TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            args.push(Box::new(self.parse_expression(Precedence::Lowest)?));
+        }
+
+        self.expect_peek(&TokenType::RParen)?;
+        Ok(args)
     }
 
     fn parse_block_statement(&mut self) -> Result<ast::BlockStatement> {
@@ -654,6 +691,15 @@ return 993322;
             PrecedenceTest::new("2 / (5 + 5)", "(2 / (5 + 5))"),
             PrecedenceTest::new("-(5 + 5)", "(-(5 + 5))"),
             PrecedenceTest::new("!(true == true)", "(!(true == true))"),
+            PrecedenceTest::new("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+            PrecedenceTest::new(
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ),
+            PrecedenceTest::new(
+                "add(a + b + c * d / f + g)",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ),
         ];
 
         for test in precedence_tests.iter() {
@@ -751,6 +797,36 @@ return 993322;
                     statements.get(0).unwrap()
                 );
             }
+        }
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+
+        use ast::{Expression, FunctionParameters, Identifier, Program, Statement};
+        let Program(statements) = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+        assert_eq!(statements.len(), 1);
+
+        if let Some(Statement::ExpressionStatement(Expression::Call {
+            ref function,
+            ref arguments,
+            ..
+        })) = statements.get(0)
+        {
+            test_identifier(function, "add");
+            assert_eq!(arguments.len(), 3);
+            test_literal_expression(&arguments[0], &1.into());
+            test_infix_expression(&arguments[1], 2, "*", 3);
+            test_infix_expression(&arguments[2], 4, "+", 5);
+        } else {
+            panic!(
+                "call expression cannot be parsed properly. statement: {}",
+                statements.get(0).unwrap()
+            );
         }
     }
 

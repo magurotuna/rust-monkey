@@ -37,6 +37,11 @@ pub enum Expression {
         parameters: FunctionParameters,
         body: BlockStatement,
     },
+    Call {
+        token: Token,
+        function: Box<Expression>,
+        arguments: Vec<Box<Expression>>,
+    },
     Dummy,
 }
 
@@ -128,6 +133,20 @@ impl fmt::Display for Expression {
                     .collect::<Vec<_>>()
                     .join(", "),
                 body,
+            ),
+            Expression::Call {
+                ref function,
+                ref arguments,
+                ..
+            } => write!(
+                f,
+                "{}({})",
+                function,
+                arguments
+                    .iter()
+                    .map(|arg| format!("{}", arg))
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
             Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
