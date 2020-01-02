@@ -41,6 +41,8 @@ enum MonkeyParseError {
     UnableToParseBooleanLiteral(String),
     #[error("prefix parse function for `{0:?}` not found")]
     NoPrefixParseFn(TokenType),
+    #[error("no matching parenthesis found, got `{0:?}`")]
+    NoMathingParenthesis(TokenType),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -146,6 +148,7 @@ impl Parser {
             TokenType::Int => self.parse_integer_literal(),
             TokenType::True | TokenType::False => self.parse_boolean_literal(),
             TokenType::Bang | TokenType::Minus => self.parse_prefix_expression(),
+            TokenType::LParen => self.parse_grouped_expression(),
             x => {
                 let err = MonkeyParseError::NoPrefixParseFn(x);
                 Err(Error::from(Box::new(err)))
@@ -205,6 +208,16 @@ impl Parser {
             operator,
             right: Box::new(right),
         })
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<ast::Expression> {
+        self.next_token();
+        let expr = self.parse_expression(Precedence::Lowest)?;
+        if !self.expect_peek(&TokenType::RParen) {
+            let err = MonkeyParseError::NoMathingParenthesis(self.peek_token.token_type);
+            return Err(Error::from(Box::new(err)));
+        }
+        Ok(expr)
     }
 
     fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Result<ast::Expression> {
@@ -577,6 +590,11 @@ return 993322;
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ),
+            PrecedenceTest::new("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            PrecedenceTest::new("(5 + 5) * 2", "((5 + 5) * 2)"),
+            PrecedenceTest::new("2 / (5 + 5)", "(2 / (5 + 5))"),
+            PrecedenceTest::new("-(5 + 5)", "(-(5 + 5))"),
+            PrecedenceTest::new("!(true == true)", "(!(true == true))"),
         ];
 
         for test in precedence_tests.iter() {
