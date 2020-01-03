@@ -10,9 +10,9 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(input: String) -> Self {
+    pub fn new(input: impl AsRef<str>) -> Self {
         let mut l = Lexer {
-            input: input.chars().collect(),
+            input: input.as_ref().chars().collect(),
             ..Default::default()
         };
         l.read_char();

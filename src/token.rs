@@ -29,10 +29,10 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, literal: String) -> Self {
+    pub fn new<T: Into<String>>(token_type: TokenType, literal: T) -> Self {
         Token {
             token_type,
-            literal,
+            literal: literal.into(),
         }
     }
 
@@ -61,7 +61,49 @@ impl Default for Token {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+// To use trait object, prepare this trait which is object safety.
+pub trait IntoToken {
+    fn into_token(&self) -> Token;
+}
+
+impl IntoToken for i64 {
+    fn into_token(&self) -> Token {
+        Token::new(TokenType::Int, self.to_string())
+    }
+}
+
+impl IntoToken for &str {
+    fn into_token(&self) -> Token {
+        Token::new(TokenType::Identifier, self.to_string())
+    }
+}
+
+impl IntoToken for String {
+    fn into_token(&self) -> Token {
+        Token::new(TokenType::Identifier, self.clone())
+    }
+}
+
+impl IntoToken for bool {
+    fn into_token(&self) -> Token {
+        Token::new(
+            if *self {
+                TokenType::True
+            } else {
+                TokenType::False
+            },
+            self.to_string(),
+        )
+    }
+}
+
+impl<T: ?Sized + IntoToken> IntoToken for Box<T> {
+    fn into_token(&self) -> Token {
+        (**self).into_token()
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum TokenType {
     Illegal,
     Eof,
