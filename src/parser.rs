@@ -1,7 +1,7 @@
 use crate::ast;
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
-use anyhow::{Error, Result};
+//use anyhow::{Error, Result};
 use std::collections::HashMap;
 use std::default::Default;
 use std::mem;
@@ -32,7 +32,7 @@ pub struct Parser {
 
 #[derive(Debug, Error)]
 #[error("{}", .0.iter().map(|e| format!("\t{}", e)).collect::<Vec<_>>().join("\n"))]
-pub struct MonkeyParseErrors(Vec<Error>);
+pub struct MonkeyParseErrors(Vec<MonkeyParseError>);
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 enum MonkeyParseError {
@@ -60,6 +60,9 @@ pub enum Precedence {
     Call,        // func()
 }
 
+pub type WholeResult<T> = std::result::Result<T, MonkeyParseErrors>;
+pub type SeveralResult<T> = std::result::Result<T, MonkeyParseError>;
+
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         let mut p = Parser {
@@ -75,7 +78,7 @@ impl Parser {
     }
 
     /// NOTE: This function consumes Parser.
-    pub fn parse_program(mut self) -> Result<ast::Program> {
+    pub fn parse_program(mut self) -> WholeResult<ast::Program> {
         let mut statements = Vec::new();
         while !self.cur_token_is(&TokenType::Eof) {
             match self.parse_statement() {
@@ -90,7 +93,7 @@ impl Parser {
 
         let MonkeyParseErrors(ref errors) = self.errors;
         if !errors.is_empty() {
-            return Err(Error::from(Box::new(self.errors)));
+            return Err(self.errors);
         }
         Ok(ast::Program(statements))
     }
@@ -100,7 +103,7 @@ impl Parser {
         self.peek_token = self.lexer.next_token();
     }
 
-    fn parse_statement(&mut self) -> Result<ast::Statement> {
+    fn parse_statement(&mut self) -> SeveralResult<ast::Statement> {
         match self.cur_token.token_type {
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
@@ -108,7 +111,7 @@ impl Parser {
         }
     }
 
-    fn parse_let_statement(&mut self) -> Result<ast::Statement> {
+    fn parse_let_statement(&mut self) -> SeveralResult<ast::Statement> {
         self.expect_peek(&TokenType::Identifier)?;
 
         let identifier = ast::Identifier(self.cur_token.literal.clone()); // cannot get rid of `clone`?
@@ -125,7 +128,7 @@ impl Parser {
         Ok(ast::Statement::Let(identifier, value))
     }
 
-    fn parse_return_statement(&mut self) -> Result<ast::Statement> {
+    fn parse_return_statement(&mut self) -> SeveralResult<ast::Statement> {
         self.next_token();
 
         let expr = self.parse_expression(Precedence::Lowest)?;
@@ -137,7 +140,7 @@ impl Parser {
         Ok(ast::Statement::Return(expr))
     }
 
-    fn parse_expression_statement(&mut self) -> Result<ast::Statement> {
+    fn parse_expression_statement(&mut self) -> SeveralResult<ast::Statement> {
         let expr = self.parse_expression(Precedence::Lowest)?;
         let statement = ast::Statement::ExpressionStatement(expr);
         if self.peek_token_is(&TokenType::Semicolon) {
@@ -146,7 +149,7 @@ impl Parser {
         Ok(statement)
     }
 
-    fn parse_expression(&mut self, precedence: Precedence) -> Result<ast::Expression> {
+    fn parse_expression(&mut self, precedence: Precedence) -> SeveralResult<ast::Expression> {
         let mut left_expr = match self.cur_token.token_type {
             TokenType::Identifier => self.parse_identifier(),
             TokenType::Int => self.parse_integer_literal(),
@@ -155,10 +158,7 @@ impl Parser {
             TokenType::LParen => self.parse_grouped_expression(),
             TokenType::If => self.parse_if_expression(),
             TokenType::Function => self.parse_function_literal(),
-            x => {
-                let err = MonkeyParseError::NoPrefixParseFn(x);
-                Err(Error::from(Box::new(err)))
-            }
+            x => Err(MonkeyParseError::NoPrefixParseFn(x)),
         }?;
 
         while !self.peek_token_is(&TokenType::Semicolon) && precedence < self.peek_precedence() {
@@ -184,31 +184,31 @@ impl Parser {
         Ok(left_expr)
     }
 
-    fn parse_identifier(&self) -> Result<ast::Expression> {
+    fn parse_identifier(&self) -> SeveralResult<ast::Expression> {
         Ok(ast::Expression::Identifier(ast::Identifier(
             self.cur_token.literal.clone(),
         )))
     }
 
-    fn parse_integer_literal(&self) -> Result<ast::Expression> {
+    fn parse_integer_literal(&self) -> SeveralResult<ast::Expression> {
         let val: i64 = self.cur_token.literal.parse().map_err(|_| {
             MonkeyParseError::UnableToParseIntegerLiteral(self.cur_token.literal.clone())
         })?;
         Ok(ast::Expression::IntegerLiteral(val))
     }
 
-    fn parse_boolean_literal(&self) -> Result<ast::Expression> {
+    fn parse_boolean_literal(&self) -> SeveralResult<ast::Expression> {
         match self.cur_token.token_type {
             TokenType::True | TokenType::False => Ok(ast::Expression::BooleanLiteral(
                 self.cur_token_is(&TokenType::True),
             )),
-            _ => Err(Error::from(Box::new(
-                MonkeyParseError::UnableToParseBooleanLiteral(self.cur_token.literal.clone()),
-            ))),
+            _ => Err(MonkeyParseError::UnableToParseBooleanLiteral(
+                self.cur_token.literal.clone(),
+            )),
         }
     }
 
-    fn parse_prefix_expression(&mut self) -> Result<ast::Expression> {
+    fn parse_prefix_expression(&mut self) -> SeveralResult<ast::Expression> {
         let token = self.cur_token.clone();
         let operator = self.cur_token.literal.clone();
         self.next_token();
@@ -220,14 +220,14 @@ impl Parser {
         })
     }
 
-    fn parse_grouped_expression(&mut self) -> Result<ast::Expression> {
+    fn parse_grouped_expression(&mut self) -> SeveralResult<ast::Expression> {
         self.next_token();
         let expr = self.parse_expression(Precedence::Lowest)?;
         self.expect_peek(&TokenType::RParen)?;
         Ok(expr)
     }
 
-    fn parse_if_expression(&mut self) -> Result<ast::Expression> {
+    fn parse_if_expression(&mut self) -> SeveralResult<ast::Expression> {
         let token = self.cur_token.clone();
         self.expect_peek(&TokenType::LParen)?;
         self.next_token();
@@ -253,7 +253,7 @@ impl Parser {
         })
     }
 
-    fn parse_function_literal(&mut self) -> Result<ast::Expression> {
+    fn parse_function_literal(&mut self) -> SeveralResult<ast::Expression> {
         let token = self.cur_token.clone();
         self.expect_peek(&TokenType::LParen)?;
         let parameters = self.parse_function_parameters()?;
@@ -266,7 +266,10 @@ impl Parser {
         })
     }
 
-    fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Result<ast::Expression> {
+    fn parse_infix_expression(
+        &mut self,
+        left: Box<ast::Expression>,
+    ) -> SeveralResult<ast::Expression> {
         let token = self.cur_token.clone();
         let operator = self.cur_token.literal.clone();
         let precedence = self.cur_precedence();
@@ -280,7 +283,10 @@ impl Parser {
         })
     }
 
-    fn parse_call_expression(&mut self, left: Box<ast::Expression>) -> Result<ast::Expression> {
+    fn parse_call_expression(
+        &mut self,
+        left: Box<ast::Expression>,
+    ) -> SeveralResult<ast::Expression> {
         let token = self.cur_token.clone();
         let args = self.parse_call_arguments()?;
         Ok(ast::Expression::Call {
@@ -290,7 +296,7 @@ impl Parser {
         })
     }
 
-    fn parse_call_arguments(&mut self) -> Result<Vec<Box<ast::Expression>>> {
+    fn parse_call_arguments(&mut self) -> SeveralResult<Vec<Box<ast::Expression>>> {
         let mut args = Vec::new();
 
         // no arguments
@@ -312,7 +318,7 @@ impl Parser {
         Ok(args)
     }
 
-    fn parse_block_statement(&mut self) -> Result<ast::BlockStatement> {
+    fn parse_block_statement(&mut self) -> SeveralResult<ast::BlockStatement> {
         let mut stmts = Vec::new();
         self.next_token();
 
@@ -325,7 +331,7 @@ impl Parser {
         Ok(ast::BlockStatement(stmts))
     }
 
-    fn parse_function_parameters(&mut self) -> Result<ast::FunctionParameters> {
+    fn parse_function_parameters(&mut self) -> SeveralResult<ast::FunctionParameters> {
         let mut identifiers = Vec::new();
 
         // no parameters
@@ -356,7 +362,7 @@ impl Parser {
         self.peek_token.token_type == *t
     }
 
-    fn expect_peek(&mut self, t: &TokenType) -> Result<()> {
+    fn expect_peek(&mut self, t: &TokenType) -> SeveralResult<()> {
         if self.peek_token_is(t) {
             self.next_token();
             Ok(())
@@ -365,12 +371,11 @@ impl Parser {
         }
     }
 
-    fn peek_error(&mut self, expected_token_type: &TokenType) -> Error {
-        let err = MonkeyParseError::InvalidToken {
+    fn peek_error(&mut self, expected_token_type: &TokenType) -> MonkeyParseError {
+        MonkeyParseError::InvalidToken {
             expected: *expected_token_type,
             actual: self.peek_token.token_type,
-        };
-        Error::from(Box::new(err))
+        }
     }
 
     fn cur_precedence(&self) -> Precedence {
@@ -392,6 +397,7 @@ impl Parser {
 mod tests {
     use super::*;
     use crate::token::{IntoToken, Token, TokenType};
+    use ast::{BlockStatement, Expression, FunctionParameters, Identifier, Program, Statement};
 
     #[test]
     fn test_let_statements() {
@@ -422,24 +428,25 @@ mod tests {
             let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
-            let ast::Program(statements) = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
-
-            use ast::{Expression, Identifier, Statement};
-            assert_eq!(statements.len(), 1);
-            if let Some(Statement::Let(Identifier(ref ident), ref expr)) = statements.get(0) {
-                assert_eq!(test.expected_identifier, ident);
-                test_literal_expression(expr, &test.expected_value.into_token());
-            } else {
-                panic!(
-                    "let statement cannot be parsed properly, got {}",
-                    statements.get(0).unwrap()
-                );
+            match parser.parse_program() {
+                Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+                Ok(Program(statements)) => {
+                    assert_eq!(statements.len(), 1);
+                    if let Some(Statement::Let(Identifier(ref ident), ref expr)) = statements.get(0)
+                    {
+                        assert_eq!(test.expected_identifier, ident);
+                        test_literal_expression(expr, &test.expected_value.into_token());
+                    } else {
+                        panic!(
+                            "let statement cannot be parsed properly, got {}",
+                            statements.get(0).unwrap()
+                        );
+                    }
+                }
             }
         }
     }
 
-    // TODO: uncomment out after implementing expression parser
     #[test]
     fn test_let_statements_error() {
         let input = r#"
@@ -449,28 +456,33 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let program = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-        assert_eq!(parser.errors.len(), 2);
+        if let Err(MonkeyParseErrors(ref errors)) = parser.parse_program() {
+            check_parser_errors(errors);
+            assert_eq!(errors.len(), 2);
 
-        let expected_errors = [
-            MonkeyParseError::InvalidToken {
-                expected: TokenType::Assign,
-                actual: TokenType::Int,
-            },
-            MonkeyParseError::InvalidToken {
-                expected: TokenType::Identifier,
-                actual: TokenType::Int,
-            },
-        ];
-        parser
-            .errors
-            .into_iter()
-            .zip(expected_errors.into_iter())
-            .map(|(actual, expected)| (format!("{}", actual), format!("{}", expected)))
-            .for_each(|(actual_msg, expected_msg)| {
-                assert_eq!(actual_msg, expected_msg);
-            });
+            let expected_errors = [
+                MonkeyParseError::InvalidToken {
+                    expected: TokenType::Assign,
+                    actual: TokenType::Int,
+                },
+                MonkeyParseError::InvalidToken {
+                    expected: TokenType::Identifier,
+                    actual: TokenType::Int,
+                },
+            ];
+            errors
+                .into_iter()
+                .zip(expected_errors.into_iter())
+                .map(|(actual, expected)| (format!("{}", actual), format!("{}", expected)))
+                .for_each(|(actual_msg, expected_msg)| {
+                    assert_eq!(actual_msg, expected_msg);
+                });
+        } else {
+            panic!(
+                "expected to be error, but somehow success. input is: {}",
+                &input
+            );
+        }
     }
 
     #[test]
@@ -498,18 +510,19 @@ mod tests {
             let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
-            let ast::Program(statements) = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
-
-            use ast::{Expression, Identifier, Statement};
-            assert_eq!(statements.len(), 1);
-            if let Some(Statement::Return(ref expr)) = statements.get(0) {
-                test_literal_expression(expr, &test.expected_value.into_token());
-            } else {
-                panic!(
-                    "return statement cannot be parsed properly, got {}",
-                    statements.get(0).unwrap()
-                );
+            match parser.parse_program() {
+                Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+                Ok(Program(statements)) => {
+                    assert_eq!(statements.len(), 1);
+                    if let Some(Statement::Return(ref expr)) = statements.get(0) {
+                        test_literal_expression(expr, &test.expected_value.into_token());
+                    } else {
+                        panic!(
+                            "return statement cannot be parsed properly, got {}",
+                            statements.get(0).unwrap()
+                        );
+                    }
+                }
             }
         }
     }
@@ -520,21 +533,22 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let ast::Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-
-        assert_eq!(statements.len(), 1);
-
-        use ast::{Expression, Identifier, Statement};
-        if let Some(Statement::ExpressionStatement(Expression::Identifier(Identifier(ref ident)))) =
-            statements.get(0)
-        {
-            assert_eq!(ident, "foobar");
-        } else {
-            panic!(
-                "identifier cannot be parsed properly. statement: {}",
-                statements.get(0).unwrap()
-            );
+        match parser.parse_program() {
+            Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+            Ok(Program(statements)) => {
+                assert_eq!(statements.len(), 1);
+                if let Some(Statement::ExpressionStatement(Expression::Identifier(Identifier(
+                    ref ident,
+                )))) = statements.get(0)
+                {
+                    assert_eq!(ident, "foobar");
+                } else {
+                    panic!(
+                        "identifier cannot be parsed properly. statement: {}",
+                        statements.get(0).unwrap()
+                    );
+                }
+            }
         }
     }
 
@@ -545,21 +559,21 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let ast::Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-
-        assert_eq!(statements.len(), 1);
-
-        use ast::{Expression, Identifier, Statement};
-        if let Some(Statement::ExpressionStatement(Expression::IntegerLiteral(ref val))) =
-            statements.get(0)
-        {
-            assert_eq!(val, &5);
-        } else {
-            panic!(
-                "integer literal cannot be parsed properly. statement: {}",
-                statements.get(0).unwrap()
-            );
+        match parser.parse_program() {
+            Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+            Ok(Program(statements)) => {
+                assert_eq!(statements.len(), 1);
+                if let Some(Statement::ExpressionStatement(Expression::IntegerLiteral(ref val))) =
+                    statements.get(0)
+                {
+                    assert_eq!(val, &5);
+                } else {
+                    panic!(
+                        "integer literal cannot be parsed properly. statement: {}",
+                        statements.get(0).unwrap()
+                    );
+                }
+            }
         }
     }
 
@@ -579,21 +593,22 @@ mod tests {
             let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
-            let ast::Program(statements) = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
-
-            assert_eq!(statements.len(), 1);
-
-            use ast::{Expression, Identifier, Statement};
-            if let Some(Statement::ExpressionStatement(Expression::BooleanLiteral(ref val))) =
-                statements.get(0)
-            {
-                assert_eq!(&test.expected, val);
-            } else {
-                panic!(
-                    "boolean literal cannot be parsed properly. statement: {}",
-                    statements.get(0).unwrap()
-                );
+            match parser.parse_program() {
+                Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+                Ok(Program(statements)) => {
+                    assert_eq!(statements.len(), 1);
+                    if let Some(Statement::ExpressionStatement(Expression::BooleanLiteral(
+                        ref val,
+                    ))) = statements.get(0)
+                    {
+                        assert_eq!(&test.expected, val);
+                    } else {
+                        panic!(
+                            "boolean literal cannot be parsed properly. statement: {}",
+                            statements.get(0).unwrap()
+                        );
+                    }
+                }
             }
         }
     }
@@ -615,25 +630,25 @@ mod tests {
             let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
-            let ast::Program(statements) = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
-
-            assert_eq!(statements.len(), 1);
-
-            use ast::{Expression, Identifier, Statement};
-            if let Some(Statement::ExpressionStatement(Expression::Prefix {
-                ref operator,
-                ref right,
-                ..
-            })) = statements.get(0)
-            {
-                assert_eq!(operator, test.operator);
-                test_integer_literal(right, test.int_value);
-            } else {
-                panic!(
-                    "prefix expression cannot be parsed properly. statement: {}",
-                    statements.get(0).unwrap()
-                );
+            match parser.parse_program() {
+                Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+                Ok(Program(statements)) => {
+                    assert_eq!(statements.len(), 1);
+                    if let Some(Statement::ExpressionStatement(Expression::Prefix {
+                        ref operator,
+                        ref right,
+                        ..
+                    })) = statements.get(0)
+                    {
+                        assert_eq!(operator, test.operator);
+                        test_integer_literal(right, test.int_value);
+                    } else {
+                        panic!(
+                            "prefix expression cannot be parsed properly. statement: {}",
+                            statements.get(0).unwrap()
+                        );
+                    }
+                }
             }
         }
     }
@@ -682,23 +697,24 @@ mod tests {
             let lexer = Lexer::new(infix_test.input);
             let mut parser = Parser::new(lexer);
 
-            let ast::Program(statements) = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
-
-            assert_eq!(statements.len(), 1);
-
-            if let Some(ast::Statement::ExpressionStatement(ref expr)) = statements.get(0) {
-                test_infix_expression(
-                    expr,
-                    &infix_test.left_value,
-                    infix_test.operator,
-                    &infix_test.right_value,
-                );
-            } else {
-                panic!(
-                    "infix expression cannot be parsed properly. statement: {}",
-                    statements.get(0).unwrap()
-                );
+            match parser.parse_program() {
+                Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+                Ok(Program(statements)) => {
+                    assert_eq!(statements.len(), 1);
+                    if let Some(ast::Statement::ExpressionStatement(ref expr)) = statements.get(0) {
+                        test_infix_expression(
+                            expr,
+                            &infix_test.left_value,
+                            infix_test.operator,
+                            &infix_test.right_value,
+                        );
+                    } else {
+                        panic!(
+                            "infix expression cannot be parsed properly. statement: {}",
+                            statements.get(0).unwrap()
+                        );
+                    }
+                }
             }
         }
     }
@@ -747,9 +763,12 @@ mod tests {
             let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
-            let program = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
-            assert_eq!(&format!("{}", program), test.expected);
+            match parser.parse_program() {
+                Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+                Ok(program) => {
+                    assert_eq!(&format!("{}", program), test.expected);
+                }
+            }
         }
     }
 
@@ -759,38 +778,39 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let ast::Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-        assert_eq!(statements.len(), 1);
+        match parser.parse_program() {
+            Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+            Ok(Program(statements)) => {
+                assert_eq!(statements.len(), 1);
+                if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
+                    parameters: FunctionParameters(ref parameters),
+                    ref body,
+                    ..
+                })) = statements.get(0)
+                {
+                    // parameters assertion
+                    assert_eq!(parameters.len(), 2);
+                    assert_eq!(parameters.get(0), Some(&Identifier("x".to_string())));
+                    assert_eq!(parameters.get(1), Some(&Identifier("y".to_string())));
 
-        use ast::{BlockStatement, Expression, FunctionParameters, Identifier, Statement};
-        if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
-            parameters: FunctionParameters(ref parameters),
-            ref body,
-            ..
-        })) = statements.get(0)
-        {
-            // parameters assertion
-            assert_eq!(parameters.len(), 2);
-            assert_eq!(parameters.get(0), Some(&Identifier("x".to_string())));
-            assert_eq!(parameters.get(1), Some(&Identifier("y".to_string())));
-
-            // function body assertion
-            let &BlockStatement(ref body_stmts) = body;
-            assert_eq!(body_stmts.len(), 1);
-            if let Some(Statement::ExpressionStatement(ref expr)) = body_stmts.get(0) {
-                test_infix_expression(expr, &"x", "+", &"y");
-            } else {
-                panic!(
-                    "function body block parse error. first statement: `{}`",
-                    body_stmts.get(0).unwrap()
-                );
+                    // function body assertion
+                    let &BlockStatement(ref body_stmts) = body;
+                    assert_eq!(body_stmts.len(), 1);
+                    if let Some(Statement::ExpressionStatement(ref expr)) = body_stmts.get(0) {
+                        test_infix_expression(expr, &"x", "+", &"y");
+                    } else {
+                        panic!(
+                            "function body block parse error. first statement: `{}`",
+                            body_stmts.get(0).unwrap()
+                        );
+                    }
+                } else {
+                    panic!(
+                        "prefix expression cannot be parsed properly. statement: {}",
+                        statements.get(0).unwrap()
+                    );
+                }
             }
-        } else {
-            panic!(
-                "prefix expression cannot be parsed properly. statement: {}",
-                statements.get(0).unwrap()
-            );
         }
     }
 
@@ -816,27 +836,28 @@ mod tests {
             let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
-            use ast::{Expression, FunctionParameters, Identifier, Program, Statement};
-            let Program(statements) = parser.parse_program().unwrap();
-            check_parser_errors(&parser);
-            assert_eq!(statements.len(), 1);
-
-            if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
-                parameters: FunctionParameters(ref params),
-                ..
-            })) = statements.get(0)
-            {
-                params
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, Identifier(ref ident))| {
-                        assert_eq!(test.expected_params[i], ident)
-                    });
-            } else {
-                panic!(
-                    "function literal cannot be parsed properly. statement: {}",
-                    statements.get(0).unwrap()
-                );
+            match parser.parse_program() {
+                Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+                Ok(Program(statements)) => {
+                    assert_eq!(statements.len(), 1);
+                    if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
+                        parameters: FunctionParameters(ref params),
+                        ..
+                    })) = statements.get(0)
+                    {
+                        params
+                            .iter()
+                            .enumerate()
+                            .for_each(|(i, Identifier(ref ident))| {
+                                assert_eq!(test.expected_params[i], ident)
+                            });
+                    } else {
+                        panic!(
+                            "function literal cannot be parsed properly. statement: {}",
+                            statements.get(0).unwrap()
+                        );
+                    }
+                }
             }
         }
     }
@@ -847,27 +868,28 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        use ast::{Expression, FunctionParameters, Identifier, Program, Statement};
-        let Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-        assert_eq!(statements.len(), 1);
-
-        if let Some(Statement::ExpressionStatement(Expression::Call {
-            ref function,
-            ref arguments,
-            ..
-        })) = statements.get(0)
-        {
-            test_identifier(function, "add");
-            assert_eq!(arguments.len(), 3);
-            test_literal_expression(&arguments[0], &1.into_token());
-            test_infix_expression(&arguments[1], &2, "*", &3);
-            test_infix_expression(&arguments[2], &4, "+", &5);
-        } else {
-            panic!(
-                "call expression cannot be parsed properly. statement: {}",
-                statements.get(0).unwrap()
-            );
+        match parser.parse_program() {
+            Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+            Ok(Program(statements)) => {
+                assert_eq!(statements.len(), 1);
+                if let Some(Statement::ExpressionStatement(Expression::Call {
+                    ref function,
+                    ref arguments,
+                    ..
+                })) = statements.get(0)
+                {
+                    test_identifier(function, "add");
+                    assert_eq!(arguments.len(), 3);
+                    test_literal_expression(&arguments[0], &1.into_token());
+                    test_infix_expression(&arguments[1], &2, "*", &3);
+                    test_infix_expression(&arguments[2], &4, "+", &5);
+                } else {
+                    panic!(
+                        "call expression cannot be parsed properly. statement: {}",
+                        statements.get(0).unwrap()
+                    );
+                }
+            }
         }
     }
 
@@ -878,40 +900,41 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let ast::Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-        assert_eq!(statements.len(), 1);
+        match parser.parse_program() {
+            Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+            Ok(Program(statements)) => {
+                assert_eq!(statements.len(), 1);
+                if let Some(Statement::ExpressionStatement(Expression::If {
+                    ref condition,
+                    ref consequence,
+                    ref alternative,
+                    ..
+                })) = statements.get(0)
+                {
+                    // condition assertion
+                    test_infix_expression(condition, &"x", "<", &"y");
 
-        use ast::{BlockStatement, Expression, Identifier, Statement};
-        if let Some(Statement::ExpressionStatement(Expression::If {
-            ref condition,
-            ref consequence,
-            ref alternative,
-            ..
-        })) = statements.get(0)
-        {
-            // condition assertion
-            test_infix_expression(condition, &"x", "<", &"y");
+                    // consequence assertion
+                    let &BlockStatement(ref cons_stmts) = consequence;
+                    assert_eq!(1, cons_stmts.len());
+                    if let Some(Statement::ExpressionStatement(ref expr)) = cons_stmts.get(0) {
+                        test_identifier(expr, "x");
+                    } else {
+                        panic!(
+                            "consequence block parse error. first statement: `{}`",
+                            cons_stmts.get(0).unwrap()
+                        );
+                    }
 
-            // consequence assertion
-            let &BlockStatement(ref cons_stmts) = consequence;
-            assert_eq!(1, cons_stmts.len());
-            if let Some(Statement::ExpressionStatement(ref expr)) = cons_stmts.get(0) {
-                test_identifier(expr, "x");
-            } else {
-                panic!(
-                    "consequence block parse error. first statement: `{}`",
-                    cons_stmts.get(0).unwrap()
-                );
+                    // alternative assertion
+                    assert!(alternative.is_none());
+                } else {
+                    panic!(
+                        "prefix expression cannot be parsed properly. statement: {}",
+                        statements.get(0).unwrap()
+                    );
+                }
             }
-
-            // alternative assertion
-            assert!(alternative.is_none());
-        } else {
-            panic!(
-                "prefix expression cannot be parsed properly. statement: {}",
-                statements.get(0).unwrap()
-            );
         }
     }
 
@@ -922,49 +945,50 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let ast::Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-        assert_eq!(statements.len(), 1);
+        match parser.parse_program() {
+            Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
+            Ok(Program(statements)) => {
+                assert_eq!(statements.len(), 1);
+                if let Some(Statement::ExpressionStatement(Expression::If {
+                    ref condition,
+                    ref consequence,
+                    ref alternative,
+                    ..
+                })) = statements.get(0)
+                {
+                    // condition assertion
+                    test_infix_expression(condition, &"x", "<", &"y");
 
-        use ast::{BlockStatement, Expression, Identifier, Statement};
-        if let Some(Statement::ExpressionStatement(Expression::If {
-            ref condition,
-            ref consequence,
-            ref alternative,
-            ..
-        })) = statements.get(0)
-        {
-            // condition assertion
-            test_infix_expression(condition, &"x", "<", &"y");
+                    // consequence assertion
+                    let &BlockStatement(ref cons_stmts) = consequence;
+                    assert_eq!(1, cons_stmts.len());
+                    if let Some(Statement::ExpressionStatement(ref expr)) = cons_stmts.get(0) {
+                        test_identifier(expr, "x");
+                    } else {
+                        panic!(
+                            "consequence block parse error. first statement: `{}`",
+                            cons_stmts.get(0).unwrap()
+                        );
+                    }
 
-            // consequence assertion
-            let &BlockStatement(ref cons_stmts) = consequence;
-            assert_eq!(1, cons_stmts.len());
-            if let Some(Statement::ExpressionStatement(ref expr)) = cons_stmts.get(0) {
-                test_identifier(expr, "x");
-            } else {
-                panic!(
-                    "consequence block parse error. first statement: `{}`",
-                    cons_stmts.get(0).unwrap()
-                );
+                    // alternative assertion
+                    let BlockStatement(ref alt_stmts) = alternative.as_ref().unwrap();
+                    assert_eq!(1, cons_stmts.len());
+                    if let Some(Statement::ExpressionStatement(ref expr)) = alt_stmts.get(0) {
+                        test_identifier(expr, "y");
+                    } else {
+                        panic!(
+                            "alternative block parse error. first statement: `{}`",
+                            alt_stmts.get(0).unwrap()
+                        );
+                    }
+                } else {
+                    panic!(
+                        "prefix expression cannot be parsed properly. statement: {}",
+                        statements.get(0).unwrap()
+                    );
+                }
             }
-
-            // alternative assertion
-            let BlockStatement(ref alt_stmts) = alternative.as_ref().unwrap();
-            assert_eq!(1, cons_stmts.len());
-            if let Some(Statement::ExpressionStatement(ref expr)) = alt_stmts.get(0) {
-                test_identifier(expr, "y");
-            } else {
-                panic!(
-                    "alternative block parse error. first statement: `{}`",
-                    alt_stmts.get(0).unwrap()
-                );
-            }
-        } else {
-            panic!(
-                "prefix expression cannot be parsed properly. statement: {}",
-                statements.get(0).unwrap()
-            );
         }
     }
 
@@ -1033,16 +1057,18 @@ mod tests {
         }
     }
 
-    fn check_parser_errors(parser: &Parser) -> bool {
-        if parser.errors.len() == 0 {
-            return false;
+    fn check_parser_errors(errors: &[MonkeyParseError]) {
+        if errors.is_empty() {
+            return;
         }
 
-        println!("parser has {} errors", parser.errors.len());
-        parser
-            .errors
+        println!("parser has {} errors", errors.len());
+        errors
             .iter()
             .for_each(|err| println!("parser error: {}", err));
-        true
+    }
+
+    fn print_typename<T>(_: T) -> &'static str {
+        std::any::type_name::<T>()
     }
 }
