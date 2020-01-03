@@ -1,6 +1,5 @@
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::token::TokenType;
 use std::io;
 use std::io::prelude::*;
 
@@ -30,8 +29,8 @@ pub fn start<R: io::Read, W: io::Write>(
 
         let mut line = String::new();
         input.read_line(&mut line)?;
-        let mut lexer = Lexer::new(line);
-        let mut parser = Parser::new(lexer);
+        let lexer = Lexer::new(line);
+        let parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Ok(program) => {
@@ -47,12 +46,5 @@ pub fn start<R: io::Read, W: io::Write>(
             }
         };
         output.flush()?;
-
-        //let mut tok = lexer.next_token();
-        //while tok.token_type != TokenType::Eof {
-        //writeln!(output, "{:?}", &tok)?;
-        //output.flush()?;
-        //tok = lexer.next_token();
-        //}
     }
 }

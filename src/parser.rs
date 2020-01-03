@@ -61,7 +61,7 @@ pub enum Precedence {
 }
 
 pub type WholeResult<T> = std::result::Result<T, MonkeyParseErrors>;
-pub type SeveralResult<T> = std::result::Result<T, MonkeyParseError>;
+type SeveralResult<T> = std::result::Result<T, MonkeyParseError>;
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
