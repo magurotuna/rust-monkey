@@ -42,7 +42,6 @@ pub enum Expression {
         function: Box<Expression>,
         arguments: Vec<Box<Expression>>,
     },
-    Dummy,
 }
 
 #[derive(Debug)]
@@ -148,7 +147,6 @@ impl fmt::Display for Expression {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Expression::Dummy => write!(f, "THIS SHOULD BE FIXED"), // FIXME
         }
     }
 }
