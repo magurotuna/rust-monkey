@@ -22,12 +22,17 @@ lazy_static! {
     };
 }
 
-struct Parser {
+#[derive(Debug)]
+pub struct Parser {
     lexer: Lexer,
     cur_token: Token,
     peek_token: Token,
-    errors: Vec<Error>,
+    errors: MonkeyParseErrors,
 }
+
+#[derive(Debug, Error)]
+#[error("{}", .0.iter().map(|e| format!("\t{}", e)).collect::<Vec<_>>().join("\n"))]
+pub struct MonkeyParseErrors(Vec<Error>);
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 enum MonkeyParseError {
@@ -56,12 +61,12 @@ pub enum Precedence {
 }
 
 impl Parser {
-    fn new(lexer: Lexer) -> Self {
+    pub fn new(lexer: Lexer) -> Self {
         let mut p = Parser {
             lexer,
             cur_token: Token::default(),
             peek_token: Token::default(),
-            errors: Vec::new(),
+            errors: MonkeyParseErrors(Vec::new()),
         };
         // Load 2 tokens to set both cur_token & peek_token
         p.next_token();
@@ -69,21 +74,30 @@ impl Parser {
         p
     }
 
-    fn next_token(&mut self) {
-        self.cur_token = mem::take(&mut self.peek_token);
-        self.peek_token = self.lexer.next_token();
-    }
-
-    fn parse_program(&mut self) -> Result<ast::Program> {
+    /// NOTE: This function consumes Parser.
+    pub fn parse_program(mut self) -> Result<ast::Program> {
         let mut statements = Vec::new();
         while !self.cur_token_is(&TokenType::Eof) {
             match self.parse_statement() {
                 Ok(stmt) => statements.push(stmt),
-                Err(e) => self.errors.push(e),
+                Err(e) => {
+                    let MonkeyParseErrors(ref mut errors) = self.errors;
+                    errors.push(e);
+                }
             }
             self.next_token();
         }
+
+        let MonkeyParseErrors(ref errors) = self.errors;
+        if !errors.is_empty() {
+            return Err(Error::from(Box::new(self.errors)));
+        }
         Ok(ast::Program(statements))
+    }
+
+    fn next_token(&mut self) {
+        self.cur_token = mem::take(&mut self.peek_token);
+        self.peek_token = self.lexer.next_token();
     }
 
     fn parse_statement(&mut self) -> Result<ast::Statement> {
@@ -430,7 +444,7 @@ mod tests {
     fn test_let_statements_error() {
         let input = r#"
     let x  5;
-    let 838383;
+    let 838384;
     "#;
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
