@@ -61,34 +61,45 @@ impl Default for Token {
     }
 }
 
-impl From<String> for Token {
-    fn from(literal: String) -> Self {
-        Token::new(TokenType::Identifier, literal)
+// To use trait object, prepare this trait which is object safety.
+pub trait IntoToken {
+    fn into_token(&self) -> Token;
+}
+
+impl IntoToken for i64 {
+    fn into_token(&self) -> Token {
+        Token::new(TokenType::Int, self.to_string())
     }
 }
 
-impl From<&str> for Token {
-    fn from(literal: &str) -> Self {
-        Token::new(TokenType::Identifier, literal.to_string())
+impl IntoToken for &str {
+    fn into_token(&self) -> Token {
+        Token::new(TokenType::Identifier, self.to_string())
     }
 }
 
-impl From<i64> for Token {
-    fn from(value: i64) -> Self {
-        Token::new(TokenType::Int, value.to_string())
+impl IntoToken for String {
+    fn into_token(&self) -> Token {
+        Token::new(TokenType::Identifier, self.clone())
     }
 }
 
-impl From<bool> for Token {
-    fn from(value: bool) -> Self {
+impl IntoToken for bool {
+    fn into_token(&self) -> Token {
         Token::new(
-            if value {
+            if *self {
                 TokenType::True
             } else {
                 TokenType::False
             },
-            value.to_string(),
+            self.to_string(),
         )
+    }
+}
+
+impl<T: ?Sized + IntoToken> IntoToken for Box<T> {
+    fn into_token(&self) -> Token {
+        (**self).into_token()
     }
 }
 

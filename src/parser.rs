@@ -374,15 +374,70 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::token::{IntoToken, Token, TokenType};
 
     #[test]
     fn test_let_statements() {
+        //struct TestLet {
+        //input: &'static str,
+        //expected_identifier: &'static str,
+        //expected_value: Box<dyn Into<Token>>,
+        //};
+        //let let_tests = [
+        //TestLet {
+        //input: "let x = 5;",
+        //expected_identifier: "x",
+        //expected_value: Box::new(5),
+        //},
+        //TestLet {
+        //input: "let y = true;",
+        //expected_identifier: "y",
+        //expected_value: Box::new(true),
+        //},
+        //TestLet {
+        //input: "let foobar = y;",
+        //expected_identifier: "foobar",
+        //expected_value: Box::new("y"),
+        //},
+        //];
+
+        //for test in let_tests.iter() {
+        //let lexer = Lexer::new(test.input);
+        //let mut parser = Parser::new(lexer);
+
+        //let ast::Program(statements) = parser.parse_program().unwrap();
+        //check_parser_errors(&parser);
+
+        //use ast::{Expression, Identifier, Statement};
+        //assert_eq!(statements.len(), 1);
+        //if let Some(Statement::Let(Identifier(ref ident), ref expr)) = statements.get(0) {
+        //assert_eq!(test.expected_identifier, ident);
+        //test_literal_expression(expr, test.expected_value.clone().into());
+        //} else {
+        //panic!(
+        //"let statement cannot be parsed properly, got {}",
+        //statements.get(0).unwrap()
+        //);
+        //}
+
+        //for (i, t) in expected.into_iter().enumerate() {
+        //let stmt = statements.get(i).unwrap();
+        //match *stmt {
+        //ast::Statement::Let(ref ident, _) => {
+        //let ast::Identifier(value) = ident;
+        //assert_eq!(value, t);
+        //}
+        //_ => panic!(""),
+        //}
+        //}
+        //}
+
         let input = r#"
 let x = 5;
 let y = 10;
 let foobar = 838383;
             "#;
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let ast::Program(statements) = parser.parse_program().unwrap();
@@ -411,7 +466,7 @@ let foobar = 838383;
     //let = 10;
     //let 838383;
     //"#;
-    //let lexer = Lexer::new(input.to_string());
+    //let lexer = Lexer::new(input);
     //let mut parser = Parser::new(lexer);
 
     //let program = parser.parse_program().unwrap();
@@ -449,7 +504,7 @@ return 5;
 return 10;
 return 993322;
             "#;
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let ast::Program(statements) = parser.parse_program().unwrap();
@@ -466,7 +521,7 @@ return 993322;
     #[test]
     fn test_identifier_expression() {
         let input = "foobar;";
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let ast::Program(statements) = parser.parse_program().unwrap();
@@ -491,7 +546,7 @@ return 993322;
     fn test_integer_literal_expression() {
         let input = "5;";
 
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let ast::Program(statements) = parser.parse_program().unwrap();
@@ -525,7 +580,7 @@ return 993322;
         ];
 
         for test in boolean_test.iter() {
-            let lexer = Lexer::new(test.input.to_string());
+            let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
             let ast::Program(statements) = parser.parse_program().unwrap();
@@ -561,7 +616,7 @@ return 993322;
         ];
 
         for test in prefix_tests.iter() {
-            let lexer = Lexer::new(test.input.to_string());
+            let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
             let ast::Program(statements) = parser.parse_program().unwrap();
@@ -587,17 +642,32 @@ return 993322;
         }
     }
 
-    #[derive(new)]
-    struct InfixTest<T: Into<Token>> {
-        input: &'static str,
-        left_value: T,
-        operator: &'static str,
-        right_value: T,
-    }
-
     #[test]
     fn test_parsing_infix_integer_expressions() {
-        let infix_integer_tests = [
+        struct InfixTest {
+            input: &'static str,
+            left_value: Box<dyn IntoToken>,
+            operator: &'static str,
+            right_value: Box<dyn IntoToken>,
+        }
+
+        impl InfixTest {
+            fn new<'a>(
+                input: &'static str,
+                left_value: impl IntoToken + 'static,
+                operator: &'static str,
+                right_value: impl IntoToken + 'static,
+            ) -> Self {
+                InfixTest {
+                    input,
+                    operator,
+                    left_value: Box::new(left_value),
+                    right_value: Box::new(right_value),
+                }
+            }
+        }
+
+        let infix_tests = [
             InfixTest::new("5 + 2;", 5, "+", 2),
             InfixTest::new("5 - 2;", 5, "-", 2),
             InfixTest::new("5 * 2;", 5, "*", 2),
@@ -605,60 +675,35 @@ return 993322;
             InfixTest::new("5 > 2;", 5, ">", 2),
             InfixTest::new("5 < 2;", 5, "<", 2),
             InfixTest::new("5 == 2;", 5, "==", 2),
-        ];
-        for test in infix_integer_tests.iter() {
-            assert_infix_expression(test);
-        }
-    }
-
-    #[test]
-    fn test_parsing_infix_identifier_expressions() {
-        let infix_identifier_tests = [
             InfixTest::new("alice != bob;", "alice", "!=", "bob"),
             InfixTest::new("foo * bar;", "foo", "*", "bar"),
             InfixTest::new("hoge < piyo", "hoge", "<", "piyo"),
-        ];
-        for test in infix_identifier_tests.iter() {
-            assert_infix_expression(test);
-        }
-    }
-
-    #[test]
-    fn test_parsing_infix_boolean_expressions() {
-        let infix_boolean_tests = [
             InfixTest::new("true != false;", true, "!=", false),
             InfixTest::new("true * false;", true, "*", false),
             InfixTest::new("false < true", false, "<", true),
         ];
-        for test in infix_boolean_tests.iter() {
-            assert_infix_expression(test);
-        }
-    }
+        for infix_test in infix_tests.into_iter() {
+            let lexer = Lexer::new(infix_test.input);
+            let mut parser = Parser::new(lexer);
 
-    fn assert_infix_expression<T>(infix_test: &InfixTest<T>)
-    where
-        T: Into<Token> + Copy,
-    {
-        let lexer = Lexer::new(infix_test.input.to_string());
-        let mut parser = Parser::new(lexer);
+            let ast::Program(statements) = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
 
-        let ast::Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
+            assert_eq!(statements.len(), 1);
 
-        assert_eq!(statements.len(), 1);
-
-        if let Some(ast::Statement::ExpressionStatement(ref expr)) = statements.get(0) {
-            test_infix_expression(
-                expr,
-                infix_test.left_value,
-                infix_test.operator,
-                infix_test.right_value,
-            );
-        } else {
-            panic!(
-                "infix expression cannot be parsed properly. statement: {}",
-                statements.get(0).unwrap()
-            );
+            if let Some(ast::Statement::ExpressionStatement(ref expr)) = statements.get(0) {
+                test_infix_expression(
+                    expr,
+                    &infix_test.left_value,
+                    infix_test.operator,
+                    &infix_test.right_value,
+                );
+            } else {
+                panic!(
+                    "infix expression cannot be parsed properly. statement: {}",
+                    statements.get(0).unwrap()
+                );
+            }
         }
     }
 
@@ -703,7 +748,7 @@ return 993322;
         ];
 
         for test in precedence_tests.iter() {
-            let lexer = Lexer::new(test.input.to_string());
+            let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
             let program = parser.parse_program().unwrap();
@@ -715,7 +760,7 @@ return 993322;
     #[test]
     fn test_function_literal_parsing() {
         let input = "fn(x, y) { x + y; }";
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let ast::Program(statements) = parser.parse_program().unwrap();
@@ -738,7 +783,7 @@ return 993322;
             let &BlockStatement(ref body_stmts) = body;
             assert_eq!(body_stmts.len(), 1);
             if let Some(Statement::ExpressionStatement(ref expr)) = body_stmts.get(0) {
-                test_infix_expression(expr, "x", "+", "y");
+                test_infix_expression(expr, &"x", "+", &"y");
             } else {
                 panic!(
                     "function body block parse error. first statement: `{}`",
@@ -772,7 +817,7 @@ return 993322;
         ];
 
         for test in tests.iter() {
-            let lexer = Lexer::new(test.input.to_string());
+            let lexer = Lexer::new(test.input);
             let mut parser = Parser::new(lexer);
 
             use ast::{Expression, FunctionParameters, Identifier, Program, Statement};
@@ -803,7 +848,7 @@ return 993322;
     #[test]
     fn test_call_expression_parsing() {
         let input = "add(1, 2 * 3, 4 + 5);";
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         use ast::{Expression, FunctionParameters, Identifier, Program, Statement};
@@ -819,9 +864,9 @@ return 993322;
         {
             test_identifier(function, "add");
             assert_eq!(arguments.len(), 3);
-            test_literal_expression(&arguments[0], &1.into());
-            test_infix_expression(&arguments[1], 2, "*", 3);
-            test_infix_expression(&arguments[2], 4, "+", 5);
+            test_literal_expression(&arguments[0], &1.into_token());
+            test_infix_expression(&arguments[1], &2, "*", &3);
+            test_infix_expression(&arguments[2], &4, "+", &5);
         } else {
             panic!(
                 "call expression cannot be parsed properly. statement: {}",
@@ -834,7 +879,7 @@ return 993322;
     fn test_if_expression() {
         let input = "if (x < y) { x }";
 
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let ast::Program(statements) = parser.parse_program().unwrap();
@@ -850,7 +895,7 @@ return 993322;
         })) = statements.get(0)
         {
             // condition assertion
-            test_infix_expression(condition, "x", "<", "y");
+            test_infix_expression(condition, &"x", "<", &"y");
 
             // consequence assertion
             let &BlockStatement(ref cons_stmts) = consequence;
@@ -878,7 +923,7 @@ return 993322;
     fn test_if_else_expression() {
         let input = "if (x < y) { x } else { y }";
 
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let ast::Program(statements) = parser.parse_program().unwrap();
@@ -894,7 +939,7 @@ return 993322;
         })) = statements.get(0)
         {
             // condition assertion
-            test_infix_expression(condition, "x", "<", "y");
+            test_infix_expression(condition, &"x", "<", &"y");
 
             // consequence assertion
             let &BlockStatement(ref cons_stmts) = consequence;
@@ -971,15 +1016,12 @@ return 993322;
         }
     }
 
-    fn test_infix_expression<L, R>(
+    fn test_infix_expression(
         expr: &ast::Expression,
-        expected_left: L,
+        expected_left: &dyn IntoToken,
         expected_operator: &str,
-        expected_right: R,
-    ) where
-        L: Into<Token>,
-        R: Into<Token>,
-    {
+        expected_right: &dyn IntoToken,
+    ) {
         if let &ast::Expression::Infix {
             ref operator,
             ref right,
@@ -988,8 +1030,8 @@ return 993322;
         } = expr
         {
             assert_eq!(expected_operator, operator);
-            test_literal_expression(left, &expected_left.into());
-            test_literal_expression(right, &expected_right.into());
+            test_literal_expression(left, &expected_left.into_token());
+            test_literal_expression(right, &expected_right.into_token());
         } else {
             panic!("expr is not Expression. got={}", expr);
         }
