@@ -101,23 +101,26 @@ impl Parser {
 
         self.expect_peek(&TokenType::Assign)?;
 
-        // TODO: skip to read the expression until encountering semicolon.
-        while !self.cur_token_is(&TokenType::Semicolon) {
+        self.next_token();
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(&TokenType::Semicolon) {
             self.next_token();
         }
 
-        Ok(ast::Statement::Let(identifier, ast::Expression::Dummy)) // FIXME
+        Ok(ast::Statement::Let(identifier, value))
     }
 
     fn parse_return_statement(&mut self) -> Result<ast::Statement> {
         self.next_token();
 
-        // TODO: skip to read the expression until encountering semicolon.
-        while !self.cur_token_is(&TokenType::Semicolon) {
+        let expr = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(&TokenType::Semicolon) {
             self.next_token();
         }
 
-        Ok(ast::Statement::Return(ast::Expression::Dummy)) // FIXME
+        Ok(ast::Statement::Return(expr))
     }
 
     fn parse_expression_statement(&mut self) -> Result<ast::Statement> {
@@ -378,144 +381,123 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        //struct TestLet {
-        //input: &'static str,
-        //expected_identifier: &'static str,
-        //expected_value: Box<dyn Into<Token>>,
-        //};
-        //let let_tests = [
-        //TestLet {
-        //input: "let x = 5;",
-        //expected_identifier: "x",
-        //expected_value: Box::new(5),
-        //},
-        //TestLet {
-        //input: "let y = true;",
-        //expected_identifier: "y",
-        //expected_value: Box::new(true),
-        //},
-        //TestLet {
-        //input: "let foobar = y;",
-        //expected_identifier: "foobar",
-        //expected_value: Box::new("y"),
-        //},
-        //];
+        struct TestLet {
+            input: &'static str,
+            expected_identifier: &'static str,
+            expected_value: Box<dyn IntoToken>,
+        };
+        let let_tests = [
+            TestLet {
+                input: "let x = 5;",
+                expected_identifier: "x",
+                expected_value: Box::new(5),
+            },
+            TestLet {
+                input: "let y = true;",
+                expected_identifier: "y",
+                expected_value: Box::new(true),
+            },
+            TestLet {
+                input: "let foobar = y;",
+                expected_identifier: "foobar",
+                expected_value: Box::new("y"),
+            },
+        ];
 
-        //for test in let_tests.iter() {
-        //let lexer = Lexer::new(test.input);
-        //let mut parser = Parser::new(lexer);
+        for test in let_tests.iter() {
+            let lexer = Lexer::new(test.input);
+            let mut parser = Parser::new(lexer);
 
-        //let ast::Program(statements) = parser.parse_program().unwrap();
-        //check_parser_errors(&parser);
+            let ast::Program(statements) = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
 
-        //use ast::{Expression, Identifier, Statement};
-        //assert_eq!(statements.len(), 1);
-        //if let Some(Statement::Let(Identifier(ref ident), ref expr)) = statements.get(0) {
-        //assert_eq!(test.expected_identifier, ident);
-        //test_literal_expression(expr, test.expected_value.clone().into());
-        //} else {
-        //panic!(
-        //"let statement cannot be parsed properly, got {}",
-        //statements.get(0).unwrap()
-        //);
-        //}
-
-        //for (i, t) in expected.into_iter().enumerate() {
-        //let stmt = statements.get(i).unwrap();
-        //match *stmt {
-        //ast::Statement::Let(ref ident, _) => {
-        //let ast::Identifier(value) = ident;
-        //assert_eq!(value, t);
-        //}
-        //_ => panic!(""),
-        //}
-        //}
-        //}
-
-        let input = r#"
-let x = 5;
-let y = 10;
-let foobar = 838383;
-            "#;
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-
-        let ast::Program(statements) = parser.parse_program().unwrap();
-        check_parser_errors(&parser);
-
-        assert_eq!(statements.len(), 3);
-
-        let expected = vec!["x", "y", "foobar"];
-        for (i, t) in expected.into_iter().enumerate() {
-            let stmt = statements.get(i).unwrap();
-            match *stmt {
-                ast::Statement::Let(ref ident, _) => {
-                    let ast::Identifier(value) = ident;
-                    assert_eq!(value, t);
-                }
-                _ => panic!(""),
+            use ast::{Expression, Identifier, Statement};
+            assert_eq!(statements.len(), 1);
+            if let Some(Statement::Let(Identifier(ref ident), ref expr)) = statements.get(0) {
+                assert_eq!(test.expected_identifier, ident);
+                test_literal_expression(expr, &test.expected_value.into_token());
+            } else {
+                panic!(
+                    "let statement cannot be parsed properly, got {}",
+                    statements.get(0).unwrap()
+                );
             }
         }
     }
 
     // TODO: uncomment out after implementing expression parser
-    //#[test]
-    //fn test_let_statements_error() {
-    //let input = r#"
-    //let x  5;
-    //let = 10;
-    //let 838383;
-    //"#;
-    //let lexer = Lexer::new(input);
-    //let mut parser = Parser::new(lexer);
-
-    //let program = parser.parse_program().unwrap();
-    //check_parser_errors(&parser);
-    //assert_eq!(parser.errors.len(), 3);
-
-    //let expected_errors = [
-    //MonkeyParseError::InvalidToken {
-    //expected: TokenType::Assign,
-    //actual: TokenType::Int,
-    //},
-    //MonkeyParseError::InvalidToken {
-    //expected: TokenType::Identifier,
-    //actual: TokenType::Assign,
-    //},
-    //MonkeyParseError::InvalidToken {
-    //expected: TokenType::Identifier,
-    //actual: TokenType::Int,
-    //},
-    //];
-    //parser
-    //.errors
-    //.into_iter()
-    //.zip(expected_errors.into_iter())
-    //.map(|(actual, expected)| (format!("{}", actual), format!("{}", expected)))
-    //.for_each(|(actual_msg, expected_msg)| {
-    //assert_eq!(actual_msg, expected_msg);
-    //});
-    //}
-
     #[test]
-    fn test_return_statements() {
+    fn test_let_statements_error() {
         let input = r#"
-return 5;
-return 10;
-return 993322;
-            "#;
+    let x  5;
+    let 838383;
+    "#;
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        let ast::Program(statements) = parser.parse_program().unwrap();
+        let program = parser.parse_program().unwrap();
         check_parser_errors(&parser);
+        assert_eq!(parser.errors.len(), 2);
 
-        assert_eq!(statements.len(), 3);
+        let expected_errors = [
+            MonkeyParseError::InvalidToken {
+                expected: TokenType::Assign,
+                actual: TokenType::Int,
+            },
+            MonkeyParseError::InvalidToken {
+                expected: TokenType::Identifier,
+                actual: TokenType::Int,
+            },
+        ];
+        parser
+            .errors
+            .into_iter()
+            .zip(expected_errors.into_iter())
+            .map(|(actual, expected)| (format!("{}", actual), format!("{}", expected)))
+            .for_each(|(actual_msg, expected_msg)| {
+                assert_eq!(actual_msg, expected_msg);
+            });
+    }
 
-        statements.iter().for_each(|stmt| match *stmt {
-            ast::Statement::Return(_) => (),
-            _ => panic!("the statement expected to be `return`, got {:?}", stmt),
-        });
+    #[test]
+    fn test_return_statements() {
+        struct TestReturn {
+            input: &'static str,
+            expected_value: Box<dyn IntoToken>,
+        };
+        let let_tests = [
+            TestReturn {
+                input: "return 5;",
+                expected_value: Box::new(5),
+            },
+            TestReturn {
+                input: "return true;",
+                expected_value: Box::new(true),
+            },
+            TestReturn {
+                input: "return foobar;",
+                expected_value: Box::new("foobar"),
+            },
+        ];
+
+        for test in let_tests.iter() {
+            let lexer = Lexer::new(test.input);
+            let mut parser = Parser::new(lexer);
+
+            let ast::Program(statements) = parser.parse_program().unwrap();
+            check_parser_errors(&parser);
+
+            use ast::{Expression, Identifier, Statement};
+            assert_eq!(statements.len(), 1);
+            if let Some(Statement::Return(ref expr)) = statements.get(0) {
+                test_literal_expression(expr, &test.expected_value.into_token());
+            } else {
+                panic!(
+                    "return statement cannot be parsed properly, got {}",
+                    statements.get(0).unwrap()
+                );
+            }
+        }
     }
 
     #[test]
@@ -652,7 +634,7 @@ return 993322;
         }
 
         impl InfixTest {
-            fn new<'a>(
+            fn new(
                 input: &'static str,
                 left_value: impl IntoToken + 'static,
                 operator: &'static str,
