@@ -78,11 +78,11 @@ impl Parser {
     }
 
     /// NOTE: This function consumes Parser.
-    pub fn parse_program(mut self) -> WholeResult<ast::Program> {
+    pub fn parse_program(mut self) -> WholeResult<ast::Node> {
         let mut statements = Vec::new();
         while !self.cur_token_is(&TokenType::Eof) {
             match self.parse_statement() {
-                Ok(stmt) => statements.push(stmt),
+                Ok(stmt) => statements.push(ast::Node::Statement(stmt)),
                 Err(e) => {
                     let MonkeyParseErrors(ref mut errors) = self.errors;
                     errors.push(e);
@@ -95,7 +95,7 @@ impl Parser {
         if !errors.is_empty() {
             return Err(self.errors);
         }
-        Ok(ast::Program(statements))
+        Ok(ast::Node::Program(statements))
     }
 
     fn next_token(&mut self) {
@@ -397,7 +397,7 @@ impl Parser {
 mod tests {
     use super::*;
     use crate::token::{IntoToken, Token, TokenType};
-    use ast::{BlockStatement, Expression, FunctionParameters, Identifier, Program, Statement};
+    use ast::{BlockStatement, Expression, FunctionParameters, Identifier, Node, Statement};
 
     #[test]
     fn test_let_statements() {
@@ -430,7 +430,8 @@ mod tests {
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-                Ok(Program(statements)) => {
+                Ok(Node::Program(nodes)) => {
+                    let statements = extract_statements_from_nodes(nodes);
                     assert_eq!(statements.len(), 1);
                     if let Some(Statement::Let(Identifier(ref ident), ref expr)) = statements.get(0)
                     {
@@ -443,6 +444,7 @@ mod tests {
                         );
                     }
                 }
+                _ => unreachable!(),
             }
         }
     }
@@ -512,7 +514,8 @@ mod tests {
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-                Ok(Program(statements)) => {
+                Ok(Node::Program(nodes)) => {
+                    let statements = extract_statements_from_nodes(nodes);
                     assert_eq!(statements.len(), 1);
                     if let Some(Statement::Return(ref expr)) = statements.get(0) {
                         test_literal_expression(expr, &test.expected_value.into_token());
@@ -523,6 +526,7 @@ mod tests {
                         );
                     }
                 }
+                _ => unreachable!(),
             }
         }
     }
@@ -535,7 +539,8 @@ mod tests {
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-            Ok(Program(statements)) => {
+            Ok(Node::Program(nodes)) => {
+                let statements = extract_statements_from_nodes(nodes);
                 assert_eq!(statements.len(), 1);
                 if let Some(Statement::ExpressionStatement(Expression::Identifier(Identifier(
                     ref ident,
@@ -549,6 +554,7 @@ mod tests {
                     );
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -561,7 +567,8 @@ mod tests {
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-            Ok(Program(statements)) => {
+            Ok(Node::Program(nodes)) => {
+                let statements = extract_statements_from_nodes(nodes);
                 assert_eq!(statements.len(), 1);
                 if let Some(Statement::ExpressionStatement(Expression::IntegerLiteral(ref val))) =
                     statements.get(0)
@@ -574,6 +581,7 @@ mod tests {
                     );
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -595,7 +603,8 @@ mod tests {
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-                Ok(Program(statements)) => {
+                Ok(Node::Program(nodes)) => {
+                    let statements = extract_statements_from_nodes(nodes);
                     assert_eq!(statements.len(), 1);
                     if let Some(Statement::ExpressionStatement(Expression::BooleanLiteral(
                         ref val,
@@ -609,6 +618,7 @@ mod tests {
                         );
                     }
                 }
+                _ => unreachable!(),
             }
         }
     }
@@ -632,7 +642,8 @@ mod tests {
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-                Ok(Program(statements)) => {
+                Ok(Node::Program(nodes)) => {
+                    let statements = extract_statements_from_nodes(nodes);
                     assert_eq!(statements.len(), 1);
                     if let Some(Statement::ExpressionStatement(Expression::Prefix {
                         ref operator,
@@ -649,6 +660,7 @@ mod tests {
                         );
                     }
                 }
+                _ => unreachable!(),
             }
         }
     }
@@ -699,7 +711,8 @@ mod tests {
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-                Ok(Program(statements)) => {
+                Ok(Node::Program(nodes)) => {
+                    let statements = extract_statements_from_nodes(nodes);
                     assert_eq!(statements.len(), 1);
                     if let Some(ast::Statement::ExpressionStatement(ref expr)) = statements.get(0) {
                         test_infix_expression(
@@ -715,6 +728,7 @@ mod tests {
                         );
                     }
                 }
+                _ => unreachable!(),
             }
         }
     }
@@ -780,7 +794,8 @@ mod tests {
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-            Ok(Program(statements)) => {
+            Ok(Node::Program(nodes)) => {
+                let statements = extract_statements_from_nodes(nodes);
                 assert_eq!(statements.len(), 1);
                 if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
                     parameters: FunctionParameters(ref parameters),
@@ -811,6 +826,7 @@ mod tests {
                     );
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -838,7 +854,8 @@ mod tests {
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-                Ok(Program(statements)) => {
+                Ok(Node::Program(nodes)) => {
+                    let statements = extract_statements_from_nodes(nodes);
                     assert_eq!(statements.len(), 1);
                     if let Some(Statement::ExpressionStatement(Expression::FunctionLiteral {
                         parameters: FunctionParameters(ref params),
@@ -858,6 +875,7 @@ mod tests {
                         );
                     }
                 }
+                _ => unreachable!(),
             }
         }
     }
@@ -870,7 +888,8 @@ mod tests {
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-            Ok(Program(statements)) => {
+            Ok(Node::Program(nodes)) => {
+                let statements = extract_statements_from_nodes(nodes);
                 assert_eq!(statements.len(), 1);
                 if let Some(Statement::ExpressionStatement(Expression::Call {
                     ref function,
@@ -890,6 +909,7 @@ mod tests {
                     );
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -902,7 +922,8 @@ mod tests {
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-            Ok(Program(statements)) => {
+            Ok(Node::Program(nodes)) => {
+                let statements = extract_statements_from_nodes(nodes);
                 assert_eq!(statements.len(), 1);
                 if let Some(Statement::ExpressionStatement(Expression::If {
                     ref condition,
@@ -935,6 +956,7 @@ mod tests {
                     );
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -947,7 +969,8 @@ mod tests {
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
-            Ok(Program(statements)) => {
+            Ok(Node::Program(nodes)) => {
+                let statements = extract_statements_from_nodes(nodes);
                 assert_eq!(statements.len(), 1);
                 if let Some(Statement::ExpressionStatement(Expression::If {
                     ref condition,
@@ -989,6 +1012,7 @@ mod tests {
                     );
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -1070,5 +1094,18 @@ mod tests {
 
     fn print_typename<T>(_: T) -> &'static str {
         std::any::type_name::<T>()
+    }
+
+    fn extract_statements_from_nodes(nodes: Vec<Node>) -> Vec<Statement> {
+        nodes
+            .into_iter()
+            .filter_map(|node| {
+                if let Node::Statement(stmt) = node {
+                    Some(stmt)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
