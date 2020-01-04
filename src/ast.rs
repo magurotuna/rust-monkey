@@ -1,9 +1,6 @@
 use crate::token::Token;
 use std::fmt;
 
-//#[derive(Debug)]
-//pub struct Program(pub Vec<Statement>);
-
 #[derive(Debug)]
 pub enum Node {
     Program(Vec<Node>),
@@ -60,21 +57,6 @@ pub struct BlockStatement(pub Vec<Statement>);
 
 #[derive(Debug)]
 pub struct FunctionParameters(pub Vec<Identifier>);
-
-//impl fmt::Display for Program {
-//fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//let &Program(ref stmts) = self;
-//write!(
-//f,
-//"{}",
-//stmts
-//.iter()
-//.map(|stmt| format!("{}", stmt))
-//.collect::<Vec<_>>()
-//.join("")
-//)
-//}
-//}
 
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
