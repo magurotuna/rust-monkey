@@ -5,7 +5,7 @@ pub fn eval(node: Node) -> Object {
     match node {
         Node::Program(nodes) => nodes
             .into_iter()
-            .fold(None, |acc, node| Some(eval(node)))
+            .fold(None, |_, node| Some(eval(node)))
             .unwrap_or(Object::Null), // TODO: Is Object::Null OK?
         Node::Statement(ref stmt) => eval_statement(stmt),
         Node::Expression(ref expr) => eval_expression(expr),
@@ -154,8 +154,8 @@ mod tests {
     }
 
     fn test_eval(input: impl AsRef<str>) -> Object {
-        let mut lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
         let program = parser.parse_program().expect("parse error!");
         eval(program)
     }
