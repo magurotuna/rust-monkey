@@ -65,6 +65,7 @@ fn eval_expression(expression: &Expression) -> Object {
 fn eval_prefix_expression(operator: &str, right: Object) -> Object {
     match operator {
         "!" => eval_bang_operator_expression(right),
+        "-" => eval_minus_operator_expression(right),
         _ => Object::Null,
     }
 }
@@ -75,6 +76,13 @@ fn eval_bang_operator_expression(right: Object) -> Object {
         Object::Boolean(false) => Object::Boolean(true),
         Object::Null => Object::Boolean(true),
         _ => Object::Boolean(false),
+    }
+}
+
+fn eval_minus_operator_expression(right: Object) -> Object {
+    match right {
+        Object::Integer(value) => Object::Integer(-value),
+        _ => Object::Null,
     }
 }
 
@@ -92,7 +100,12 @@ mod tests {
             input: &'static str,
             expected: i64,
         };
-        let tests = [TestInteger::new("5", 5), TestInteger::new("10", 10)];
+        let tests = [
+            TestInteger::new("5", 5),
+            TestInteger::new("10", 10),
+            TestInteger::new("-5", -5),
+            TestInteger::new("-10", -10),
+        ];
 
         for test in tests.iter() {
             let evaluated = test_eval(test.input);
