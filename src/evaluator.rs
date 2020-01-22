@@ -31,6 +31,16 @@ fn eval_expression(expression: &Expression) -> Object {
             let evaluated_right = eval_expression(right);
             eval_prefix_expression(operator, evaluated_right)
         }
+        Expression::Infix {
+            operator,
+            left,
+            right,
+            ..
+        } => {
+            let evaluated_left = eval_expression(left);
+            let evaluated_right = eval_expression(right);
+            eval_infix_expression(operator, evaluated_left, evaluated_right)
+        }
         _ => todo!(),
     }
     //Prefix {
@@ -86,6 +96,25 @@ fn eval_minus_operator_expression(right: Object) -> Object {
     }
 }
 
+fn eval_infix_expression(operator: &str, left: Object, right: Object) -> Object {
+    match (left, right) {
+        (Object::Integer(left_val), Object::Integer(right_val)) => {
+            eval_integer_infix_expression(operator, left_val, right_val)
+        }
+        _ => Object::Null,
+    }
+}
+
+fn eval_integer_infix_expression(operator: &str, left_val: i64, right_val: i64) -> Object {
+    match operator {
+        "+" => Object::Integer(left_val + right_val),
+        "-" => Object::Integer(left_val - right_val),
+        "*" => Object::Integer(left_val * right_val),
+        "/" => Object::Integer(left_val / right_val), // TODO: do check right_val != 0
+        _ => Object::Null,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,6 +134,17 @@ mod tests {
             TestInteger::new("10", 10),
             TestInteger::new("-5", -5),
             TestInteger::new("-10", -10),
+            TestInteger::new("5 + 5 + 5 + 5 - 10", 10),
+            TestInteger::new("2 * 2 * 2 * 2 * 2", 32),
+            TestInteger::new("-50 + 100 - 50", 0),
+            TestInteger::new("5 * 2 + 10", 20),
+            TestInteger::new("5 + 2 * 10", 25),
+            TestInteger::new("20 + 2 * -10", 0),
+            TestInteger::new("50 / 2 * 2 + 10", 60),
+            TestInteger::new("2 * (5 + 10)", 30),
+            TestInteger::new("3 * 3 * 3 + 10", 37),
+            TestInteger::new("3 * (3 * 3) + 10", 37),
+            TestInteger::new("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
         ];
 
         for test in tests.iter() {

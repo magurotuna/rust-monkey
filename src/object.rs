@@ -17,6 +17,10 @@ impl Object {
             Object::Null => "NULL",
         }
     }
+
+    pub fn is_integer(&self) -> bool {
+        self.get_type() == "INTEGER"
+    }
 }
 
 impl fmt::Display for Object {
