@@ -43,17 +43,6 @@ fn eval_expression(expression: &Expression) -> Object {
         }
         _ => todo!(),
     }
-    //Prefix {
-    //token: Token,
-    //operator: String,
-    //right: Box<Expression>,
-    //},
-    //Infix {
-    //token: Token,
-    //operator: String,
-    //right: Box<Expression>,
-    //left: Box<Expression>,
-    //},
     //If {
     //token: Token,
     //condition: Box<Expression>,
@@ -101,6 +90,9 @@ fn eval_infix_expression(operator: &str, left: Object, right: Object) -> Object 
         (Object::Integer(left_val), Object::Integer(right_val)) => {
             eval_integer_infix_expression(operator, left_val, right_val)
         }
+        (Object::Boolean(left_val), Object::Boolean(right_val)) => {
+            eval_boolean_infix_expression(operator, left_val, right_val)
+        }
         _ => Object::Null,
     }
 }
@@ -111,6 +103,18 @@ fn eval_integer_infix_expression(operator: &str, left_val: i64, right_val: i64) 
         "-" => Object::Integer(left_val - right_val),
         "*" => Object::Integer(left_val * right_val),
         "/" => Object::Integer(left_val / right_val), // TODO: do check right_val != 0
+        "<" => Object::Boolean(left_val < right_val),
+        ">" => Object::Boolean(left_val > right_val),
+        "==" => Object::Boolean(left_val == right_val),
+        "!=" => Object::Boolean(left_val != right_val),
+        _ => Object::Null,
+    }
+}
+
+fn eval_boolean_infix_expression(operator: &str, left_val: bool, right_val: bool) -> Object {
+    match operator {
+        "==" => Object::Boolean(left_val == right_val),
+        "!=" => Object::Boolean(left_val != right_val),
         _ => Object::Null,
     }
 }
@@ -163,6 +167,23 @@ mod tests {
         let tests = [
             TestBoolean::new("true", true),
             TestBoolean::new("false", false),
+            TestBoolean::new("1 < 2", true),
+            TestBoolean::new("1 > 2", false),
+            TestBoolean::new("1 < 1", false),
+            TestBoolean::new("1 > 1", false),
+            TestBoolean::new("10 == 10", true),
+            TestBoolean::new("100 != 100", false),
+            TestBoolean::new("1 == 2", false),
+            TestBoolean::new("1 != 100", true),
+            TestBoolean::new("true == true", true),
+            TestBoolean::new("false == false", true),
+            TestBoolean::new("true == false", false),
+            TestBoolean::new("true != false", true),
+            TestBoolean::new("false != true", true),
+            TestBoolean::new("(1 < 2) == true", true),
+            TestBoolean::new("(1 < 2) == false", false),
+            TestBoolean::new("(1 > 2) == true", false),
+            TestBoolean::new("(1 > 2) == false", true),
         ];
 
         for test in tests.iter() {
