@@ -1,0 +1,171 @@
+use crate::ast::{BlockStatement, Expression, FunctionParameters, Identifier, Node, Statement};
+use crate::object::Object;
+
+pub fn eval(node: Node) -> Object {
+    match node {
+        Node::Program(nodes) => nodes
+            .into_iter()
+            .fold(None, |acc, node| Some(eval(node)))
+            .unwrap_or(Object::Null), // TODO: Is Object::Null OK?
+        Node::Statement(ref stmt) => eval_statement(stmt),
+        Node::Expression(ref expr) => eval_expression(expr),
+    }
+}
+
+fn eval_statement(statement: &Statement) -> Object {
+    match statement {
+        Statement::Let(Identifier(ident), expr) => todo!(),
+        Statement::Return(expr) => eval_expression(expr),
+        Statement::ExpressionStatement(expr) => eval_expression(expr),
+    }
+}
+
+fn eval_expression(expression: &Expression) -> Object {
+    match expression {
+        Expression::Identifier(Identifier(ident)) => todo!(),
+        Expression::IntegerLiteral(value) => Object::Integer(*value),
+        Expression::BooleanLiteral(value) => Object::Boolean(*value),
+        Expression::Prefix {
+            operator, right, ..
+        } => {
+            let evaluated_right = eval_expression(right);
+            eval_prefix_expression(operator, evaluated_right)
+        }
+        _ => todo!(),
+    }
+    //Prefix {
+    //token: Token,
+    //operator: String,
+    //right: Box<Expression>,
+    //},
+    //Infix {
+    //token: Token,
+    //operator: String,
+    //right: Box<Expression>,
+    //left: Box<Expression>,
+    //},
+    //If {
+    //token: Token,
+    //condition: Box<Expression>,
+    //consequence: BlockStatement,
+    //alternative: Option<BlockStatement>,
+    //},
+    //FunctionLiteral {
+    //token: Token,
+    //parameters: FunctionParameters,
+    //body: BlockStatement,
+    //},
+    //Call {
+    //token: Token,
+    //function: Box<Expression>,
+    //arguments: Vec<Box<Expression>>,
+    //},
+}
+
+fn eval_prefix_expression(operator: &str, right: Object) -> Object {
+    match operator {
+        "!" => eval_bang_operator_expression(right),
+        _ => Object::Null,
+    }
+}
+
+fn eval_bang_operator_expression(right: Object) -> Object {
+    match right {
+        Object::Boolean(true) => Object::Boolean(false),
+        Object::Boolean(false) => Object::Boolean(true),
+        Object::Null => Object::Boolean(true),
+        _ => Object::Boolean(false),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+    use crate::object::Object;
+    use crate::parser::Parser;
+
+    #[test]
+    fn test_eval_interger_expression() {
+        #[derive(new)]
+        struct TestInteger {
+            input: &'static str,
+            expected: i64,
+        };
+        let tests = [TestInteger::new("5", 5), TestInteger::new("10", 10)];
+
+        for test in tests.iter() {
+            let evaluated = test_eval(test.input);
+            test_integer_object(evaluated, test.expected);
+        }
+    }
+
+    #[test]
+    fn test_eval_boolean_expression() {
+        #[derive(new)]
+        struct TestBoolean {
+            input: &'static str,
+            expected: bool,
+        };
+        let tests = [
+            TestBoolean::new("true", true),
+            TestBoolean::new("false", false),
+        ];
+
+        for test in tests.iter() {
+            let evaluated = test_eval(test.input);
+            test_boolean_object(evaluated, test.expected);
+        }
+    }
+
+    #[test]
+    fn test_bang_operator() {
+        #[derive(new)]
+        struct TestBang {
+            input: &'static str,
+            expected: bool,
+        };
+        let tests = [
+            TestBang::new("!true", false),
+            TestBang::new("!false", true),
+            TestBang::new("!5", false),
+            TestBang::new("!!true", true),
+            TestBang::new("!!false", false),
+            TestBang::new("!!5", true),
+        ];
+
+        for test in tests.iter() {
+            let evaluated = test_eval(test.input);
+            test_boolean_object(evaluated, test.expected);
+        }
+    }
+
+    fn test_eval(input: impl AsRef<str>) -> Object {
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().expect("parse error!");
+        eval(program)
+    }
+
+    fn test_integer_object(evaluated: Object, expected: i64) {
+        if let Object::Integer(value) = evaluated {
+            assert_eq!(expected, value);
+        } else {
+            panic!(
+                "should be evaluated as integer literal, but got {}",
+                evaluated
+            );
+        }
+    }
+
+    fn test_boolean_object(evaluated: Object, expected: bool) {
+        if let Object::Boolean(value) = evaluated {
+            assert_eq!(expected, value);
+        } else {
+            panic!(
+                "should be evaluated as boolean literal, but got {}",
+                evaluated
+            );
+        }
+    }
+}

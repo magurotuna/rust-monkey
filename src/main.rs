@@ -6,7 +6,9 @@ extern crate thiserror;
 extern crate derive_new;
 
 mod ast;
+mod evaluator;
 mod lexer;
+mod object;
 mod parser;
 mod repl;
 mod token;
