@@ -1,5 +1,6 @@
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use lazy_static::lazy_static;
 use std::io;
 use std::io::prelude::*;
 
