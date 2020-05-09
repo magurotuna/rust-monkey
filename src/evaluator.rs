@@ -125,6 +125,7 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::object::Object;
     use crate::parser::Parser;
+    use derive_new::new;
 
     #[test]
     fn test_eval_interger_expression() {

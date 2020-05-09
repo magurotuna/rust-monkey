@@ -1,10 +1,11 @@
 use crate::ast;
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
-//use anyhow::{Error, Result};
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::default::Default;
 use std::mem;
+use thiserror::Error;
 
 lazy_static! {
     static ref PRECEDENCES: HashMap<TokenType, Precedence> = {
@@ -398,6 +399,7 @@ mod tests {
     use super::*;
     use crate::token::{IntoToken, Token, TokenType};
     use ast::{BlockStatement, Expression, FunctionParameters, Identifier, Node, Statement};
+    use derive_new::new;
 
     #[test]
     fn test_let_statements() {
