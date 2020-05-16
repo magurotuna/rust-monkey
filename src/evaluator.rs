@@ -20,6 +20,13 @@ fn eval_statement(statement: &Statement) -> Object {
     }
 }
 
+fn eval_statements(statements: &BlockStatement) -> Object {
+    let BlockStatement(ref stmts) = statements;
+    // TODO: Only evaluate the last statement for now. Fix to evaluate all the statements!
+    let last_stmt = stmts.last().unwrap();
+    eval_statement(last_stmt)
+}
+
 fn eval_expression(expression: &Expression) -> Object {
     match expression {
         Expression::Identifier(Identifier(ident)) => todo!(),
@@ -41,14 +48,14 @@ fn eval_expression(expression: &Expression) -> Object {
             let evaluated_right = eval_expression(right);
             eval_infix_expression(operator, evaluated_left, evaluated_right)
         }
+        Expression::If {
+            token: _,
+            condition,
+            consequence,
+            alternative,
+        } => eval_if_expression(condition, consequence, alternative),
         _ => todo!(),
     }
-    //If {
-    //token: Token,
-    //condition: Box<Expression>,
-    //consequence: BlockStatement,
-    //alternative: Option<BlockStatement>,
-    //},
     //FunctionLiteral {
     //token: Token,
     //parameters: FunctionParameters,
@@ -94,6 +101,20 @@ fn eval_infix_expression(operator: &str, left: Object, right: Object) -> Object 
             eval_boolean_infix_expression(operator, left_val, right_val)
         }
         _ => Object::Null,
+    }
+}
+
+fn eval_if_expression(
+    condition: &Expression,
+    consequence: &BlockStatement,
+    alternative: &Option<BlockStatement>,
+) -> Object {
+    match eval_expression(condition) {
+        Object::Null | Object::Boolean(false) => alternative
+            .as_ref()
+            .map(|bs| eval_statements(bs))
+            .unwrap_or(Object::Null),
+        _ => eval_statements(consequence),
     }
 }
 
@@ -215,6 +236,36 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_if_else_expressions() {
+        #[derive(new)]
+        struct TestIfElse {
+            input: &'static str,
+            expected: Object,
+        };
+        let tests = [
+            TestIfElse::new("if (true) { 10 }", Object::Integer(10)),
+            TestIfElse::new("if (false) { 10 }", Object::Null),
+            TestIfElse::new("if (1) { 10 }", Object::Integer(10)),
+            TestIfElse::new("if (1 < 2) { 10 }", Object::Integer(10)),
+            TestIfElse::new("if (1 > 2) { 10 }", Object::Null),
+            TestIfElse::new("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
+            TestIfElse::new("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
+            TestIfElse::new("if (true) { false } else { true }", Object::Boolean(false)),
+            TestIfElse::new("if (false) { false } else { true }", Object::Boolean(true)),
+        ];
+
+        for test in tests.iter() {
+            let evaluated = test_eval(test.input);
+            match test.expected {
+                Object::Null => test_null_object(evaluated),
+                Object::Integer(val) => test_integer_object(evaluated, val),
+                Object::Boolean(val) => test_boolean_object(evaluated, val),
+                _ => unreachable!(),
+            }
+        }
+    }
+
     fn test_eval(input: impl AsRef<str>) -> Object {
         let lexer = Lexer::new(input);
         let parser = Parser::new(lexer);
@@ -241,6 +292,12 @@ mod tests {
                 "should be evaluated as boolean literal, but got {}",
                 evaluated
             );
+        }
+    }
+
+    fn test_null_object(evaluated: Object) {
+        if !matches!(evaluated, Object::Null) {
+            panic!("should be evaluated as null literal, but got {}", evaluated);
         }
     }
 }
