@@ -5,6 +5,7 @@ use std::fmt;
 pub enum Node {
     Program(Vec<Node>),
     Statement(Statement),
+    #[allow(dead_code)]
     Expression(Expression),
 }
 

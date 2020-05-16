@@ -1,3 +1,5 @@
+#![allow(unused_imports, dead_code)]
+
 use crate::ast::{BlockStatement, Expression, FunctionParameters, Identifier, Node, Statement};
 use crate::object::Object;
 
@@ -14,7 +16,7 @@ pub fn eval(node: Node) -> Object {
 
 fn eval_statement(statement: &Statement) -> Object {
     match statement {
-        Statement::Let(Identifier(ident), expr) => todo!(),
+        Statement::Let(Identifier(_ident), _expr) => todo!(),
         Statement::Return(expr) => eval_expression(expr),
         Statement::ExpressionStatement(expr) => eval_expression(expr),
     }
@@ -29,7 +31,7 @@ fn eval_statements(statements: &BlockStatement) -> Object {
 
 fn eval_expression(expression: &Expression) -> Object {
     match expression {
-        Expression::Identifier(Identifier(ident)) => todo!(),
+        Expression::Identifier(Identifier(_ident)) => todo!(),
         Expression::IntegerLiteral(value) => Object::Integer(*value),
         Expression::BooleanLiteral(value) => Object::Boolean(*value),
         Expression::Prefix {
@@ -261,7 +263,6 @@ mod tests {
                 Object::Null => test_null_object(evaluated),
                 Object::Integer(val) => test_integer_object(evaluated, val),
                 Object::Boolean(val) => test_boolean_object(evaluated, val),
-                _ => unreachable!(),
             }
         }
     }

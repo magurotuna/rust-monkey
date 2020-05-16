@@ -428,7 +428,7 @@ mod tests {
 
         for test in let_tests.iter() {
             let lexer = Lexer::new(test.input);
-            let mut parser = Parser::new(lexer);
+            let parser = Parser::new(lexer);
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -458,7 +458,7 @@ mod tests {
     let 838384;
     "#;
         let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let parser = Parser::new(lexer);
 
         if let Err(MonkeyParseErrors(ref errors)) = parser.parse_program() {
             check_parser_errors(errors);
@@ -476,7 +476,7 @@ mod tests {
             ];
             errors
                 .into_iter()
-                .zip(expected_errors.into_iter())
+                .zip(expected_errors.iter())
                 .map(|(actual, expected)| (format!("{}", actual), format!("{}", expected)))
                 .for_each(|(actual_msg, expected_msg)| {
                     assert_eq!(actual_msg, expected_msg);
@@ -512,7 +512,7 @@ mod tests {
 
         for test in let_tests.iter() {
             let lexer = Lexer::new(test.input);
-            let mut parser = Parser::new(lexer);
+            let parser = Parser::new(lexer);
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -537,7 +537,7 @@ mod tests {
     fn test_identifier_expression() {
         let input = "foobar;";
         let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -565,7 +565,7 @@ mod tests {
         let input = "5;";
 
         let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -601,7 +601,7 @@ mod tests {
 
         for test in boolean_test.iter() {
             let lexer = Lexer::new(test.input);
-            let mut parser = Parser::new(lexer);
+            let parser = Parser::new(lexer);
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -640,7 +640,7 @@ mod tests {
 
         for test in prefix_tests.iter() {
             let lexer = Lexer::new(test.input);
-            let mut parser = Parser::new(lexer);
+            let parser = Parser::new(lexer);
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -707,9 +707,9 @@ mod tests {
             InfixTest::new("true * false;", true, "*", false),
             InfixTest::new("false < true", false, "<", true),
         ];
-        for infix_test in infix_tests.into_iter() {
+        for infix_test in infix_tests.iter() {
             let lexer = Lexer::new(infix_test.input);
-            let mut parser = Parser::new(lexer);
+            let parser = Parser::new(lexer);
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -777,7 +777,7 @@ mod tests {
 
         for test in precedence_tests.iter() {
             let lexer = Lexer::new(test.input);
-            let mut parser = Parser::new(lexer);
+            let parser = Parser::new(lexer);
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -792,7 +792,7 @@ mod tests {
     fn test_function_literal_parsing() {
         let input = "fn(x, y) { x + y; }";
         let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -852,7 +852,7 @@ mod tests {
 
         for test in tests.iter() {
             let lexer = Lexer::new(test.input);
-            let mut parser = Parser::new(lexer);
+            let parser = Parser::new(lexer);
 
             match parser.parse_program() {
                 Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -886,7 +886,7 @@ mod tests {
     fn test_call_expression_parsing() {
         let input = "add(1, 2 * 3, 4 + 5);";
         let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -920,7 +920,7 @@ mod tests {
         let input = "if (x < y) { x }";
 
         let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -967,7 +967,7 @@ mod tests {
         let input = "if (x < y) { x } else { y }";
 
         let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let parser = Parser::new(lexer);
 
         match parser.parse_program() {
             Err(MonkeyParseErrors(ref err)) => check_parser_errors(err),
@@ -1094,6 +1094,7 @@ mod tests {
             .for_each(|err| println!("parser error: {}", err));
     }
 
+    #[allow(dead_code)]
     fn print_typename<T>(_: T) -> &'static str {
         std::any::type_name::<T>()
     }
