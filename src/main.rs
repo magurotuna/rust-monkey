@@ -8,7 +8,6 @@ mod token;
 
 use anyhow::Result;
 use std::io;
-use whoami;
 
 fn main() -> Result<()> {
     let username = whoami::username();
